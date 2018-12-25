@@ -21,10 +21,10 @@
 // in order to make the testing and production environments match.
 var oppia = angular.module(
   'oppia', [
-    'ngMaterial', 'ngAnimate', 'ngAudio', 'ngSanitize', 'ngTouch', 'ngResource',
-    'ui.bootstrap', 'ui.sortable', 'infinite-scroll', 'ngJoyRide', 'ngImgCrop',
-    'ui.validate', 'textAngular', 'pascalprecht.translate', 'ngCookies',
-    'toastr', 'headroom'
+    'ngMaterial', 'ngAnimate', 'ngAudio', 'angularAudioRecorder', 'ngSanitize',
+    'ngTouch', 'ngResource', 'ui.bootstrap', 'ui.tree', 'ui.sortable',
+    'infinite-scroll', 'ngJoyRide', 'ngImgCrop', 'ui.validate',
+    'pascalprecht.translate', 'ngCookies', 'toastr', 'headroom', 'dndLists'
   ].concat(
     window.GLOBALS ? (window.GLOBALS.ADDITIONAL_ANGULAR_MODULES || []) : []));
 
@@ -35,19 +35,21 @@ for (var constantName in constants) {
 oppia.constant(
   'EXPLORATION_SUMMARY_DATA_URL_TEMPLATE', '/explorationsummarieshandler/data');
 
+oppia.constant('EXPLORATION_AND_SKILL_ID_PATTERN', /^[a-zA-Z0-9_-]+$/);
+
 // We use a slash because this character is forbidden in a state name.
 oppia.constant('PLACEHOLDER_OUTCOME_DEST', '/');
 oppia.constant('INTERACTION_DISPLAY_MODE_INLINE', 'inline');
-oppia.constant('RULE_TYPE_CLASSIFIER', 'FuzzyMatches');
+oppia.constant('LOADING_INDICATOR_URL', '/activity/loadingIndicator.gif');
 oppia.constant('OBJECT_EDITOR_URL_PREFIX', '/object_editor_template/');
 // Feature still in development.
 // NOTE TO DEVELOPERS: This should be synchronized with the value in feconf.
 oppia.constant('ENABLE_ML_CLASSIFIERS', false);
-// NOTE TO DEVELOPERS: This should be synchronized with the value in feconf.
-oppia.constant('ENABLE_NEW_STATS_FRAMEWORK', false);
 // Feature still in development.
-oppia.constant('INFO_MESSAGE_SOLUTION_IS_INVALID',
+oppia.constant('INFO_MESSAGE_SOLUTION_IS_INVALID_FOR_EXPLORATION',
   'The current solution does not lead to another card.');
+oppia.constant('INFO_MESSAGE_SOLUTION_IS_INVALID_FOR_QUESTION',
+  'The current solution does not correspond to a correct answer.');
 oppia.constant('INFO_MESSAGE_SOLUTION_IS_VALID',
   'The solution is now valid!');
 oppia.constant('INFO_MESSAGE_SOLUTION_IS_INVALID_FOR_CURRENT_RULE',
@@ -74,210 +76,209 @@ oppia.constant('COMPONENT_NAME_CONTENT', 'content');
 oppia.constant('COMPONENT_NAME_HINT', 'hint');
 oppia.constant('COMPONENT_NAME_SOLUTION', 'solution');
 oppia.constant('COMPONENT_NAME_FEEDBACK', 'feedback');
+oppia.constant('COMPONENT_NAME_DEFAULT_OUTCOME', 'default_outcome');
+oppia.constant('COMPONENT_NAME_EXPLANATION', 'explanation');
+oppia.constant('COMPONENT_NAME_WORKED_EXAMPLE', 'worked_example');
 
-// Add RTE extensions to textAngular toolbar options.
-oppia.config(['$provide', function($provide) {
-  $provide.decorator('taOptions', [
-    '$delegate', '$document', '$uibModal', '$timeout', 'FocusManagerService',
-    'taRegisterTool', 'RteHelperService', 'AlertsService',
-    'ExplorationContextService', 'PAGE_CONTEXT',
-    'UrlInterpolationService',
-    function(
-        taOptions, $document, $uibModal, $timeout, FocusManagerService,
-        taRegisterTool, RteHelperService, AlertsService,
-        ExplorationContextService, PAGE_CONTEXT,
-        UrlInterpolationService) {
-      taOptions.disableSanitizer = true;
-      taOptions.forceTextAngularSanitize = false;
-      taOptions.classes.textEditor = 'form-control oppia-rte-content';
-      taOptions.setup.textEditorSetup = function($element) {
-        $timeout(function() {
-          $element.trigger('focus');
-        });
-      };
+// Enables recording playthroughs from learner sessions.
+oppia.constant('CURRENT_ACTION_SCHEMA_VERSION', 1);
+oppia.constant('CURRENT_ISSUE_SCHEMA_VERSION', 1);
+oppia.constant('EARLY_QUIT_THRESHOLD_IN_SECS', 45);
+oppia.constant('NUM_INCORRECT_ANSWERS_THRESHOLD', 3);
+oppia.constant('NUM_REPEATED_CYCLES_THRESHOLD', 3);
+oppia.constant('MAX_PLAYTHROUGHS_FOR_ISSUE', 5);
 
-      // The refocusFn arg is a function that restores focus to the text editor
-      // after exiting the modal, and moves the cursor back to where it was
-      // before the modal was opened.
-      var _openCustomizationModal = function(
-          customizationArgSpecs, attrsCustomizationArgsDict, onSubmitCallback,
-          onDismissCallback, refocusFn) {
-        $document[0].execCommand('enableObjectResizing', false, false);
-        var modalDialog = $uibModal.open({
-          templateUrl: UrlInterpolationService.getDirectiveTemplateUrl(
-            '/components/forms/customize_rte_component_modal_directive.html'),
-          backdrop: 'static',
-          resolve: {},
-          controller: [
-            '$scope', '$uibModalInstance', '$timeout',
-            function($scope, $uibModalInstance, $timeout) {
-              $scope.customizationArgSpecs = customizationArgSpecs;
+oppia.constant('ACTION_TYPE_EXPLORATION_START', 'ExplorationStart');
+oppia.constant('ACTION_TYPE_ANSWER_SUBMIT', 'AnswerSubmit');
+oppia.constant('ACTION_TYPE_EXPLORATION_QUIT', 'ExplorationQuit');
 
-              // Without this code, the focus will remain in the background RTE
-              // even after the modal loads. This switches the focus to a
-              // temporary field in the modal which is then removed from the
-              // DOM.
-              // TODO(sll): Make this switch to the first input field in the
-              // modal instead.
-              $scope.modalIsLoading = true;
-              FocusManagerService.setFocus('tmpFocusPoint');
-              $timeout(function() {
-                $scope.modalIsLoading = false;
+oppia.constant('ISSUE_TYPE_EARLY_QUIT', 'EarlyQuit');
+oppia.constant(
+  'ISSUE_TYPE_MULTIPLE_INCORRECT_SUBMISSIONS', 'MultipleIncorrectSubmissions');
+oppia.constant('ISSUE_TYPE_CYCLIC_STATE_TRANSITIONS', 'CyclicStateTransitions');
+oppia.constant('SITE_NAME', 'Oppia.org');
+
+oppia.constant('DEFAULT_PROFILE_IMAGE_PATH', '/avatar/user_blue_72px.png');
+
+// Dynamically generate CKEditor widgets for the rich text components.
+oppia.run([
+  '$timeout', '$compile', '$rootScope', '$uibModal', 'RteHelperService',
+  'HtmlEscaperService',
+  function($timeout, $compile, $rootScope, $uibModal, RteHelperService,
+      HtmlEscaperService) {
+    var _RICH_TEXT_COMPONENTS = RteHelperService.getRichTextComponents();
+    _RICH_TEXT_COMPONENTS.forEach(function(componentDefn) {
+      // The name of the CKEditor widget corresponding to this component.
+      var ckName = 'oppia' + componentDefn.id;
+
+      // Check to ensure that a plugin is not registered more than once.
+      if (CKEDITOR.plugins.registered[ckName] !== undefined) {
+        return;
+      }
+      var tagName = 'oppia-noninteractive-' + componentDefn.id;
+      var customizationArgSpecs = componentDefn.customizationArgSpecs;
+      var isInline = RteHelperService.isInlineComponent(componentDefn.id);
+
+      // Inline components will be wrapped in a span, while block components
+      // will be wrapped in a div.
+      if (isInline) {
+        var componentTemplate = '<span type="' + tagName + '">' +
+                                '<' + tagName + '></' + tagName + '>' +
+                                '</span>';
+      } else {
+        var componentTemplate = '<div class="oppia-rte-component-container" ' +
+                                'type="' + tagName + '">' +
+                                '<' + tagName + '></' + tagName + '>' +
+                                '<div class="component-overlay"></div>' +
+                                '</div>';
+      }
+      CKEDITOR.plugins.add(ckName, {
+        init: function(editor) {
+          // Create the widget itself.
+          editor.widgets.add(ckName, {
+            button: componentDefn.tooltip,
+            inline: isInline,
+            template: componentTemplate,
+            draggable: false,
+            edit: function(event) {
+              editor.fire('lockSnapshot', {
+                dontUpdate: true
+              });
+              // Prevent default action since we are using our own edit modal.
+              event.cancel();
+              // Save this for creating the widget later.
+              var container = this.wrapper.getParent(true);
+              var that = this;
+              var customizationArgs = {};
+              customizationArgSpecs.forEach(function(spec) {
+                customizationArgs[spec.name] = that.data[spec.name] ||
+                                               spec.default_value;
               });
 
-              $scope.tmpCustomizationArgs = [];
-              for (var i = 0; i < customizationArgSpecs.length; i++) {
-                var caName = customizationArgSpecs[i].name;
-                $scope.tmpCustomizationArgs.push({
-                  name: caName,
-                  value: (
-                    attrsCustomizationArgsDict.hasOwnProperty(caName) ?
-                      attrsCustomizationArgsDict[caName] :
-                      customizationArgSpecs[i].default_value)
-                });
-              }
-
-              $scope.cancel = function() {
-                $uibModalInstance.dismiss('cancel');
-              };
-
-              $scope.save = function() {
-                $scope.$broadcast('externalSave');
-
-                var customizationArgsDict = {};
-                for (var i = 0; i < $scope.tmpCustomizationArgs.length; i++) {
-                  var caName = $scope.tmpCustomizationArgs[i].name;
-                  customizationArgsDict[caName] = (
-                    $scope.tmpCustomizationArgs[i].value);
-                }
-
-                $uibModalInstance.close(customizationArgsDict);
-              };
-            }
-          ]
-        });
-
-        modalDialog.result.then(onSubmitCallback, onDismissCallback);
-        // 'finally' is a JS keyword. If it is just used in its ".finally" form,
-        // the minification process throws an error.
-        modalDialog.result['finally'](refocusFn);
-      };
-
-      RteHelperService.getRichTextComponents().forEach(function(componentDefn) {
-        var buttonDisplay = RteHelperService.createToolbarIcon(componentDefn);
-        var canUseFs = ExplorationContextService.getPageContext() ===
-          PAGE_CONTEXT.EDITOR;
-
-        taRegisterTool(componentDefn.id, {
-          display: buttonDisplay.outerHTML,
-          tooltiptext: componentDefn.tooltip,
-          disabled: function() {
-            // Disable components that affect fs for non-editors.
-            return !canUseFs && componentDefn.requiresFs;
-          },
-          onElementSelect: {
-            element: 'img',
-            filter: function(elt) {
-              return elt.hasClass('oppia-noninteractive-' + componentDefn.id);
-            },
-            action: function(event, $element) {
-              event.preventDefault();
-              var textAngular = this;
-
-              if (!canUseFs && componentDefn.requiresFs) {
-                var FS_UNAUTHORIZED_WARNING = 'Unfortunately, only ' +
-                  'exploration authors can make changes involving files.';
-                AlertsService.addWarning(FS_UNAUTHORIZED_WARNING);
-                // Without this, the view will not update to show the warning.
-                textAngular.$editor().$parent.$apply();
-                return;
-              }
-
-              // Move the cursor to be immediately after the clicked widget.
-              // This prevents users from overwriting the widget.
-              var elRange = rangy.createRange();
-              elRange.setStartAfter($element.get(0));
-              elRange.setEndAfter($element.get(0));
-              var elSelection = rangy.getSelection();
-              elSelection.removeAllRanges();
-              elSelection.addRange(elRange);
-              var savedSelection = rangy.saveSelection();
-
-              // Temporarily pauses sanitizer so rangy markers save position
-              textAngular.$editor().$parent.isCustomizationModalOpen = true;
-              _openCustomizationModal(
-                componentDefn.customizationArgSpecs,
-                RteHelperService.createCustomizationArgDictFromAttrs(
-                  $element[0].attributes),
+              RteHelperService._openCustomizationModal(
+                customizationArgSpecs,
+                customizationArgs,
                 function(customizationArgsDict) {
-                  var el = RteHelperService.createRteElement(
-                    componentDefn, customizationArgsDict);
-                  $element[0].parentNode.replaceChild(el, $element[0]);
-                  textAngular.$editor().updateTaBindtaTextElement();
+                  for (var arg in customizationArgsDict) {
+                    if (customizationArgsDict.hasOwnProperty(arg)) {
+                      that.setData(arg, customizationArgsDict[arg]);
+                    }
+                  }
+                  /**
+                  * This checks whether the widget has already been inited
+                  * and set up before (if we are editing a widget that
+                  * has already been inserted into the RTE, we do not
+                  * need to finalizeCreation again).
+                  */
+                  if (!that.isReady()) {
+                    // Actually create the widget, if we have not already.
+                    editor.widgets.finalizeCreation(container);
+                  }
+
+                  /**
+                   * Need to manually $compile so the directive renders.
+                   * Note that.element.$ is the native DOM object
+                   * represented by that.element. See:
+                   * http://docs.ckeditor.com/#!/api/CKEDITOR.dom.element
+                   */
+                  $compile($(that.element.$).contents())($rootScope);
+                  // $timeout ensures we do not take the undo snapshot until
+                  // after angular finishes its changes to the component tags.
+                  $timeout(function() {
+                    // For inline widgets, place the caret after the
+                    // widget so the user can continue typing immediately.
+                    if (isInline) {
+                      var range = editor.createRange();
+                      var widgetContainer = that.element.getParent();
+                      range.moveToPosition(
+                        widgetContainer, CKEDITOR.POSITION_AFTER_END);
+                      editor.getSelection().selectRanges([range]);
+                      // Another timeout needed so the undo snapshot is
+                      // not taken until the caret is in the right place.
+                      $timeout(function() {
+                        editor.fire('unlockSnapshot');
+                        editor.fire('saveSnapshot');
+                      });
+                    } else {
+                      editor.fire('unlockSnapshot');
+                      editor.fire('saveSnapshot');
+                    }
+                  });
                 },
                 function() {},
-                function() {
-                  // Re-enables the sanitizer now that the modal is closed.
-                  textAngular.$editor(
-                  ).$parent.isCustomizationModalOpen = false;
-                  textAngular.$editor().displayElements.text[0].focus();
-                  rangy.restoreSelection(savedSelection);
-                });
-              return false;
-            }
-          },
-          action: function() {
-            var textAngular = this;
-            var savedSelection = rangy.saveSelection();
-            textAngular.$editor().wrapSelection(
-              'insertHtml', '<span class="insertionPoint"></span>');
-
-            // Temporarily pauses sanitizer so rangy markers save position.
-            textAngular.$editor().$parent.isCustomizationModalOpen = true;
-            _openCustomizationModal(
-              componentDefn.customizationArgSpecs,
-              {},
-              function(customizationArgsDict) {
-                var el = RteHelperService.createRteElement(
-                  componentDefn, customizationArgsDict);
-                var insertionPoint = (
-                  textAngular.$editor().displayElements.text[0].querySelector(
-                    '.insertionPoint'));
-                var parent = insertionPoint.parentNode;
-                parent.replaceChild(el, insertionPoint);
-                textAngular.$editor().updateTaBindtaTextElement();
-              },
-              function() {
-                // Clean up the insertion point if no widget was inserted.
-                var insertionPoint = (
-                  textAngular.$editor().displayElements.text[0].querySelector(
-                    '.insertionPoint'));
-                if (insertionPoint !== null) {
-                  insertionPoint.remove();
+                function() {});
+            },
+            /**
+             * This is how the widget will be represented in the outputs source,
+             * so it is called when we call editor.getData().
+             */
+            downcast: function(element) {
+              // Clear the angular rendering content, which we don't
+              // want in the output.
+              element.children[0].setHtml('');
+              // Return just the rich text component, without its wrapper.
+              return element.children[0];
+            },
+            /**
+             * This is how a widget is recognized by CKEditor, for example
+             * when we first load data in. Returns a boolean,
+             * true iff "element" is an instance of this widget.
+             */
+            upcast: function(element) {
+              return (element.name !== 'p' &&
+                      element.children.length > 0 &&
+                      element.children[0].name === tagName);
+            },
+            data: function() {
+              var that = this;
+              // Set attributes of component according to data values.
+              customizationArgSpecs.forEach(function(spec) {
+                that.element.getChild(0).setAttribute(
+                  spec.name + '-with-value',
+                  HtmlEscaperService.objToEscapedJson(
+                    that.data[spec.name] || ''));
+              });
+            },
+            init: function() {
+              editor.fire('lockSnapshot', {
+                dontUpdate: true
+              });
+              var that = this;
+              var isMissingAttributes = false;
+              // On init, read values from component attributes and save them.
+              customizationArgSpecs.forEach(function(spec) {
+                var value = that.element.getChild(0).getAttribute(
+                  spec.name + '-with-value');
+                if (value) {
+                  that.setData(
+                    spec.name, HtmlEscaperService.escapedJsonToObj(value));
+                } else {
+                  isMissingAttributes = true;
                 }
-              },
-              function() {
-                // Re-enables the sanitizer now that the modal is closed.
-                textAngular.$editor().$parent.isCustomizationModalOpen = false;
-                textAngular.$editor().displayElements.text[0].focus();
-                rangy.restoreSelection(savedSelection);
-              }
-            );
-          }
-        });
-      });
+              });
 
-      return taOptions;
-    }
-  ]);
-}]);
+              if (!isMissingAttributes) {
+                // Need to manually $compile so the directive renders.
+                $compile($(this.element.$).contents())($rootScope);
+              }
+              $timeout(function() {
+                editor.fire('unlockSnapshot');
+                editor.fire('saveSnapshot');
+              });
+            }
+          });
+        }
+      });
+    });
+  }
+]);
 
 oppia.config([
   '$compileProvider', '$httpProvider', '$interpolateProvider',
-  '$locationProvider',
+  '$locationProvider', '$cookiesProvider',
   function(
       $compileProvider, $httpProvider, $interpolateProvider,
-      $locationProvider) {
+      $locationProvider, $cookiesProvider) {
     // This improves performance by disabling debug data. For more details,
     // see https://code.angularjs.org/1.5.5/docs/guide/production
     $compileProvider.debugInfoEnabled(false);
@@ -292,6 +293,9 @@ oppia.config([
     if (window.location.pathname === '/search/find') {
       $locationProvider.html5Mode(true);
     }
+
+    // Prevent storing duplicate cookies for translation language.
+    $cookiesProvider.defaults.path = '/';
 
     // Set default headers for POST and PUT requests.
     $httpProvider.defaults.headers.post = {
@@ -340,25 +344,27 @@ oppia.config([
 ]);
 
 oppia.config(['$provide', function($provide) {
-  $provide.decorator('$log', ['$delegate', function($delegate) {
-    var _originalError = $delegate.error;
+  $provide.decorator('$log', ['$delegate', 'DEV_MODE',
+    function($delegate, DEV_MODE) {
+      var _originalError = $delegate.error;
 
-    if (window.GLOBALS && !window.GLOBALS.DEV_MODE) {
-      $delegate.log = function() {};
-      $delegate.info = function() {};
-      // TODO(sll): Send errors (and maybe warnings) to the backend.
-      $delegate.warn = function() { };
-      $delegate.error = function(message) {
-        if (String(message).indexOf('$digest already in progress') === -1) {
-          _originalError(message);
-        }
-      };
-      // This keeps angular-mocks happy (in tests).
-      $delegate.error.logs = [];
+      if (!DEV_MODE) {
+        $delegate.log = function() {};
+        $delegate.info = function() {};
+        // TODO(sll): Send errors (and maybe warnings) to the backend.
+        $delegate.warn = function() { };
+        $delegate.error = function(message) {
+          if (String(message).indexOf('$digest already in progress') === -1) {
+            _originalError(message);
+          }
+        };
+        // This keeps angular-mocks happy (in tests).
+        $delegate.error.logs = [];
+      }
+
+      return $delegate;
     }
-
-    return $delegate;
-  }]);
+  ]);
 }]);
 
 oppia.config(['toastrConfig', function(toastrConfig) {
@@ -374,14 +380,23 @@ oppia.config(['toastrConfig', function(toastrConfig) {
     messageClass: 'toast-message',
     progressBar: false,
     tapToDismiss: true,
-    timeOut: 1500,
     titleClass: 'toast-title'
+  });
+}]);
+
+oppia.config(['recorderServiceProvider', function(recorderServiceProvider) {
+  recorderServiceProvider.forceSwf(false);
+  recorderServiceProvider.withMp3Conversion(true, {
+    bitRate: 128
   });
 }]);
 
 // Overwrite the built-in exceptionHandler service to log errors to the backend
 // (so that they can be fixed).
 oppia.factory('$exceptionHandler', ['$log', function($log) {
+  var MIN_TIME_BETWEEN_ERRORS_MSEC = 5000;
+  var timeOfLastPostedError = Date.now() - MIN_TIME_BETWEEN_ERRORS_MSEC;
+
   return function(exception, cause) {
     var messageAndSourceAndStackTrace = [
       '',
@@ -391,26 +406,32 @@ oppia.factory('$exceptionHandler', ['$log', function($log) {
       '    at URL: ' + window.location.href
     ].join('\n');
 
-    // Catch all errors, to guard against infinite recursive loops.
-    try {
-      // We use jQuery here instead of Angular's $http, since the latter
-      // creates a circular dependency.
-      $.ajax({
-        type: 'POST',
-        url: '/frontend_errors',
-        data: $.param({
-          csrf_token: GLOBALS.csrf_token,
-          payload: JSON.stringify({
-            error: messageAndSourceAndStackTrace
-          }),
-          source: document.URL
-        }, true),
-        contentType: 'application/x-www-form-urlencoded',
-        dataType: 'text',
-        async: true
-      });
-    } catch (loggingError) {
-      $log.warn('Error logging failed.');
+    // To prevent an overdose of errors, throttle to at most 1 error every
+    // MIN_TIME_BETWEEN_ERRORS_MSEC.
+    if (Date.now() - timeOfLastPostedError > MIN_TIME_BETWEEN_ERRORS_MSEC) {
+      // Catch all errors, to guard against infinite recursive loops.
+      try {
+        // We use jQuery here instead of Angular's $http, since the latter
+        // creates a circular dependency.
+        $.ajax({
+          type: 'POST',
+          url: '/frontend_errors',
+          data: $.param({
+            csrf_token: GLOBALS.csrf_token,
+            payload: JSON.stringify({
+              error: messageAndSourceAndStackTrace
+            }),
+            source: document.URL
+          }, true),
+          contentType: 'application/x-www-form-urlencoded',
+          dataType: 'text',
+          async: true
+        });
+
+        timeOfLastPostedError = Date.now();
+      } catch (loggingError) {
+        $log.warn('Error logging failed.');
+      }
     }
 
     $log.error.apply($log, arguments);
@@ -418,198 +439,6 @@ oppia.factory('$exceptionHandler', ['$log', function($log) {
 }]);
 
 oppia.constant('LABEL_FOR_CLEARING_FOCUS', 'labelForClearingFocus');
-
-// Service for sending events to Google Analytics.
-//
-// Note that events are only sent if the CAN_SEND_ANALYTICS_EVENTS flag is
-// turned on. This flag must be turned on explicitly by the application
-// owner in feconf.py.
-oppia.factory('siteAnalyticsService', ['$window', function($window) {
-  var CAN_SEND_ANALYTICS_EVENTS = constants.CAN_SEND_ANALYTICS_EVENTS;
-  // For definitions of the various arguments, please see:
-  // developers.google.com/analytics/devguides/collection/analyticsjs/events
-  var _sendEventToGoogleAnalytics = function(
-      eventCategory, eventAction, eventLabel) {
-    if ($window.ga && CAN_SEND_ANALYTICS_EVENTS) {
-      $window.ga('send', 'event', eventCategory, eventAction, eventLabel);
-    }
-  };
-
-  // For definitions of the various arguments, please see:
-  // developers.google.com/analytics/devguides/collection/analyticsjs/
-  //   social-interactions
-  var _sendSocialEventToGoogleAnalytics = function(
-      network, action, targetUrl) {
-    if ($window.ga && CAN_SEND_ANALYTICS_EVENTS) {
-      $window.ga('send', 'social', network, action, targetUrl);
-    }
-  };
-
-  return {
-    // The srcElement refers to the element on the page that is clicked.
-    registerStartLoginEvent: function(srcElement) {
-      _sendEventToGoogleAnalytics(
-        'LoginButton', 'click', $window.location.pathname + ' ' + srcElement);
-    },
-    registerNewSignupEvent: function() {
-      _sendEventToGoogleAnalytics('SignupButton', 'click', '');
-    },
-    registerClickBrowseLibraryButtonEvent: function() {
-      _sendEventToGoogleAnalytics(
-        'BrowseLibraryButton', 'click', $window.location.pathname);
-    },
-    registerGoToDonationSiteEvent: function(donationSiteName) {
-      _sendEventToGoogleAnalytics(
-        'GoToDonationSite', 'click', donationSiteName);
-    },
-    registerApplyToTeachWithOppiaEvent: function() {
-      _sendEventToGoogleAnalytics('ApplyToTeachWithOppia', 'click', '');
-    },
-    registerClickCreateExplorationButtonEvent: function() {
-      _sendEventToGoogleAnalytics(
-        'CreateExplorationButton', 'click', $window.location.pathname);
-    },
-    registerCreateNewExplorationEvent: function(explorationId) {
-      _sendEventToGoogleAnalytics('NewExploration', 'create', explorationId);
-    },
-    registerCreateNewExplorationInCollectionEvent: function(explorationId) {
-      _sendEventToGoogleAnalytics(
-        'NewExplorationFromCollection', 'create', explorationId);
-    },
-    registerCreateNewCollectionEvent: function(collectionId) {
-      _sendEventToGoogleAnalytics('NewCollection', 'create', collectionId);
-    },
-    registerCommitChangesToPrivateExplorationEvent: function(explorationId) {
-      _sendEventToGoogleAnalytics(
-        'CommitToPrivateExploration', 'click', explorationId);
-    },
-    registerShareExplorationEvent: function(network) {
-      _sendSocialEventToGoogleAnalytics(
-        network, 'share', $window.location.pathname);
-    },
-    registerShareCollectionEvent: function(network) {
-      _sendSocialEventToGoogleAnalytics(
-        network, 'share', $window.location.pathname);
-    },
-    registerOpenEmbedInfoEvent: function(explorationId) {
-      _sendEventToGoogleAnalytics('EmbedInfoModal', 'open', explorationId);
-    },
-    registerCommitChangesToPublicExplorationEvent: function(explorationId) {
-      _sendEventToGoogleAnalytics(
-        'CommitToPublicExploration', 'click', explorationId);
-    },
-    // Metrics for tutorial on first creating exploration
-    registerTutorialModalOpenEvent: function(explorationId) {
-      _sendEventToGoogleAnalytics(
-        'TutorialModalOpen', 'open', explorationId);
-    },
-    registerDeclineTutorialModalEvent: function(explorationId) {
-      _sendEventToGoogleAnalytics(
-        'DeclineTutorialModal', 'click', explorationId);
-    },
-    registerAcceptTutorialModalEvent: function(explorationId) {
-      _sendEventToGoogleAnalytics(
-        'AcceptTutorialModal', 'click', explorationId);
-    },
-    // Metrics for visiting the help center
-    registerClickHelpButtonEvent: function(explorationId) {
-      _sendEventToGoogleAnalytics(
-        'ClickHelpButton', 'click', explorationId);
-    },
-    registerVisitHelpCenterEvent: function(explorationId) {
-      _sendEventToGoogleAnalytics(
-        'VisitHelpCenter', 'click', explorationId);
-    },
-    registerOpenTutorialFromHelpCenterEvent: function(explorationId) {
-      _sendEventToGoogleAnalytics(
-        'OpenTutorialFromHelpCenter', 'click', explorationId);
-    },
-    // Metrics for exiting the tutorial
-    registerSkipTutorialEvent: function(explorationId) {
-      _sendEventToGoogleAnalytics(
-        'SkipTutorial', 'click', explorationId);
-    },
-    registerFinishTutorialEvent: function(explorationId) {
-      _sendEventToGoogleAnalytics(
-        'FinishTutorial', 'click', explorationId);
-    },
-    // Metrics for first time editor use
-    registerEditorFirstEntryEvent: function(explorationId) {
-      _sendEventToGoogleAnalytics(
-        'FirstEnterEditor', 'open', explorationId);
-    },
-    registerFirstOpenContentBoxEvent: function(explorationId) {
-      _sendEventToGoogleAnalytics(
-        'FirstOpenContentBox', 'open', explorationId);
-    },
-    registerFirstSaveContentEvent: function(explorationId) {
-      _sendEventToGoogleAnalytics(
-        'FirstSaveContent', 'click', explorationId);
-    },
-    registerFirstClickAddInteractionEvent: function(explorationId) {
-      _sendEventToGoogleAnalytics(
-        'FirstClickAddInteraction', 'click', explorationId);
-    },
-    registerFirstSelectInteractionTypeEvent: function(explorationId) {
-      _sendEventToGoogleAnalytics(
-        'FirstSelectInteractionType', 'click', explorationId);
-    },
-    registerFirstSaveInteractionEvent: function(explorationId) {
-      _sendEventToGoogleAnalytics(
-        'FirstSaveInteraction', 'click', explorationId);
-    },
-    registerFirstSaveRuleEvent: function(explorationId) {
-      _sendEventToGoogleAnalytics(
-        'FirstSaveRule', 'click', explorationId);
-    },
-    registerFirstCreateSecondStateEvent: function(explorationId) {
-      _sendEventToGoogleAnalytics(
-        'FirstCreateSecondState', 'create', explorationId);
-    },
-    // Metrics for publishing explorations
-    registerSavePlayableExplorationEvent: function(explorationId) {
-      _sendEventToGoogleAnalytics(
-        'SavePlayableExploration', 'save', explorationId);
-    },
-    registerOpenPublishExplorationModalEvent: function(explorationId) {
-      _sendEventToGoogleAnalytics(
-        'PublishExplorationModal', 'open', explorationId);
-    },
-    registerPublishExplorationEvent: function(explorationId) {
-      _sendEventToGoogleAnalytics(
-        'PublishExploration', 'click', explorationId);
-    },
-    registerVisitOppiaFromIframeEvent: function(explorationId) {
-      _sendEventToGoogleAnalytics(
-        'VisitOppiaFromIframe', 'click', explorationId);
-    },
-    registerNewCard: function(cardNum) {
-      if (cardNum <= 10 || cardNum % 10 === 0) {
-        _sendEventToGoogleAnalytics('PlayerNewCard', 'click', cardNum);
-      }
-    },
-    registerFinishExploration: function() {
-      _sendEventToGoogleAnalytics('PlayerFinishExploration', 'click', '');
-    }
-  };
-}]);
-
-// Service for assembling extension tags (for interactions).
-oppia.factory('extensionTagAssemblerService', [
-  '$filter', 'HtmlEscaperService', function($filter, HtmlEscaperService) {
-    return {
-      formatCustomizationArgAttrs: function(element, customizationArgSpecs) {
-        for (var caSpecName in customizationArgSpecs) {
-          var caSpecValue = customizationArgSpecs[caSpecName].value;
-          element.attr(
-            $filter('camelCaseToHyphens')(caSpecName) + '-with-value',
-            HtmlEscaperService.objToEscapedJson(caSpecValue));
-        }
-        return element;
-      }
-    };
-  }
-]);
 
 // Add a String.prototype.trim() polyfill for IE8.
 if (typeof String.prototype.trim !== 'function') {

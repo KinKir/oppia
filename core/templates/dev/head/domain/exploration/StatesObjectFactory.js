@@ -35,7 +35,8 @@ oppia.factory('StatesObjectFactory', [
       return angular.copy(this._states);
     };
     States.prototype.addState = function(newStateName) {
-      this._states[newStateName] = getNewStateTemplate(newStateName);
+      this._states[newStateName] = StateObjectFactory.createDefaultState(
+        newStateName);
     };
     States.prototype.setState = function(stateName, stateData) {
       this._states[stateName] = angular.copy(stateData);
@@ -62,6 +63,7 @@ oppia.factory('StatesObjectFactory', [
     };
     States.prototype.renameState = function(oldStateName, newStateName) {
       this._states[newStateName] = angular.copy(this._states[oldStateName]);
+      this._states[newStateName].setName(newStateName);
       delete this._states[oldStateName];
 
       for (var otherStateName in this._states) {
@@ -97,56 +99,18 @@ oppia.factory('StatesObjectFactory', [
       var allAudioLanguageCodes = [];
       for (var stateName in this._states) {
         var state = this._states[stateName];
-
-        var audioTranslationsForStateContent =
-          state.content.getBindableAudioTranslations();
-        for (var languageCode in audioTranslationsForStateContent) {
-          if (allAudioLanguageCodes.indexOf(languageCode) === -1) {
-            allAudioLanguageCodes.push(languageCode);
-          }
-        }
-
-        state.interaction.answerGroups.forEach(function(answerGroup) {
-          var audioTranslationsForAnswerGroup =
-            answerGroup.outcome.feedback.getBindableAudioTranslations();
-          for (var languageCode in audioTranslationsForAnswerGroup) {
+        var contentIdsList =
+          state.contentIdsToAudioTranslations.getAllContentId();
+        contentIdsList.forEach(function(contentId) {
+          var audioLanguageCodes = (
+            state.contentIdsToAudioTranslations.getAudioLanguageCodes(
+              contentId));
+          audioLanguageCodes.forEach(function(languageCode) {
             if (allAudioLanguageCodes.indexOf(languageCode) === -1) {
               allAudioLanguageCodes.push(languageCode);
             }
-          }
+          });
         });
-
-        if (state.interaction.defaultOutcome !== null) {
-          var audioTranslationsForDefaultOutcome =
-            state.interaction.defaultOutcome.feedback
-              .getBindableAudioTranslations();
-          for (var languageCode in audioTranslationsForDefaultOutcome) {
-            if (allAudioLanguageCodes.indexOf(languageCode) === -1) {
-              allAudioLanguageCodes.push(languageCode);
-            }
-          }
-        }
-
-        state.interaction.hints.forEach(function(hint) {
-          var audioTranslationsForHint =
-            hint.hintContent.getBindableAudioTranslations();
-          for (var languageCode in audioTranslationsForHint) {
-            if (allAudioLanguageCodes.indexOf(languageCode) === -1) {
-              allAudioLanguageCodes.push(languageCode);
-            }
-          }
-        });
-
-        if (state.interaction.solution !== null) {
-          var audioTranslationsForSolution =
-            state.interaction.solution.explanation
-              .getBindableAudioTranslations();
-          for (var languageCode in audioTranslationsForSolution) {
-            if (allAudioLanguageCodes.indexOf(languageCode) === -1) {
-              allAudioLanguageCodes.push(languageCode);
-            }
-          }
-        }
       }
       return allAudioLanguageCodes;
     };
@@ -156,51 +120,16 @@ oppia.factory('StatesObjectFactory', [
       for (var stateName in this._states) {
         var state = this._states[stateName];
         allAudioTranslations[stateName] = [];
-
-        var audioTranslationsForStateContent =
-          state.content.getBindableAudioTranslations();
-        if (audioTranslationsForStateContent.hasOwnProperty(languageCode)) {
-          allAudioTranslations[stateName].push(
-            audioTranslationsForStateContent[languageCode]);
-        }
-
-        state.interaction.answerGroups.forEach(function(answerGroup) {
-          var audioTranslationsForAnswerGroup =
-            answerGroup.outcome.feedback.getBindableAudioTranslations();
-          if (audioTranslationsForAnswerGroup.hasOwnProperty(languageCode)) {
+        var contentIdsList =
+          state.contentIdsToAudioTranslations.getAllContentId();
+        contentIdsList.forEach(function(contentId) {
+          var audioTranslations = state.contentIdsToAudioTranslations
+            .getBindableAudioTranslations(contentId);
+          if (audioTranslations.hasOwnProperty(languageCode)) {
             allAudioTranslations[stateName].push(
-              audioTranslationsForAnswerGroup[languageCode]);
+              audioTranslations[languageCode]);
           }
         });
-
-        if (state.interaction.defaultOutcome !== null) {
-          var audioTranslationsForDefaultOutcome =
-            state.interaction.defaultOutcome.feedback
-              .getBindableAudioTranslations();
-          if (audioTranslationsForDefaultOutcome.hasOwnProperty(languageCode)) {
-            allAudioTranslations[stateName].push(
-              audioTranslationsForDefaultOutcome[languageCode]);
-          }
-        }
-
-        state.interaction.hints.forEach(function(hint) {
-          var audioTranslationsForHint =
-            hint.hintContent.getBindableAudioTranslations();
-          if (audioTranslationsForHint.hasOwnProperty(languageCode)) {
-            allAudioTranslations[stateName].push(
-              audioTranslationsForHint[languageCode]);
-          }
-        });
-
-        if (state.interaction.solution !== null) {
-          var audioTranslationsForSolution =
-            state.interaction.solution.explanation
-              .getBindableAudioTranslations();
-          if (audioTranslationsForSolution.hasOwnProperty(languageCode)) {
-            allAudioTranslations[stateName].push(
-              audioTranslationsForSolution[languageCode]);
-          }
-        }
       }
       return allAudioTranslations;
     };
@@ -212,18 +141,6 @@ oppia.factory('StatesObjectFactory', [
           stateName, statesBackendDict[stateName]);
       }
       return new States(stateObjectsDict);
-    };
-
-    var getNewStateTemplate = function(newStateName) {
-      var newStateTemplate = angular.copy(GLOBALS.NEW_STATE_TEMPLATE);
-      var newState = StateObjectFactory.createFromBackendDict(newStateName, {
-        classifier_model_id: newStateTemplate.classifier_model_id,
-        content: newStateTemplate.content,
-        interaction: newStateTemplate.interaction,
-        param_changes: newStateTemplate.param_changes
-      });
-      newState.interaction.defaultOutcome.dest = newStateName;
-      return newState;
     };
 
     return States;

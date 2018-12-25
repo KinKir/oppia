@@ -24,7 +24,7 @@ var GLOBALS = {
       display_mode: 'inline',
       name: 'Text Input',
       is_linear: false,
-      customization_arg_specs:  [
+      customization_arg_specs: [
         {
           default_value: '',
           name: 'placeholder',
@@ -78,11 +78,8 @@ var GLOBALS = {
     id: 'en',
     text: 'English'
   }],
-  ASSET_DIR_PREFIX: '',
   GCS_RESOURCE_BUCKET_NAME: null,
-  // This prefix is needed to correctly interpolate directive template URLs in
-  // Karma tests. It is referenced by UrlInterpolationService.
-  TEMPLATE_DIR_PREFIX: '/core/templates/dev/head'
+  userIsLoggedIn: true
 };
 
 /* hashes for UrlInterpolationService tests */
@@ -93,7 +90,8 @@ var hashes = {
   '/assets_test/hash_test.json': '987654321',
   '/pages_test/hash_test.html': 'abcd12345',
   '/images/hash_test.png': '98765fghij',
-  '/interactions/interTest/static/interTest.png' : '123654789'
+  '/videos/hash_test.mp4': '12345cxz',
+  '/interactions/interTest/static/interTest.png': '123654789'
 };
 
 /* This function overwrites the translationProvider for a dummy function
@@ -105,10 +103,10 @@ var hashes = {
  * (see the 'Unit Testing' section).
  */
 GLOBALS.TRANSLATOR_PROVIDER_FOR_TESTS = function($provide, $translateProvider) {
-  $provide.factory('customLoader', function($q) {
+  $provide.factory('customLoader', ['$q', function($q) {
     return function() {
       return $q.resolve({});
     };
-  });
+  }]);
   $translateProvider.useLoader('customLoader');
 };

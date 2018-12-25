@@ -55,7 +55,7 @@ class ExplorationConversionError(Exception):
 
 
 def create_enum(*sequential, **names):
-    """Creates a enumerated constant
+    """Creates a enumerated constant.
 
     Args:
         sequential: *. Sequence List to generate the enumerations.
@@ -290,7 +290,7 @@ def get_random_int(upper_bound):
     assert upper_bound >= 0 and isinstance(upper_bound, int)
 
     generator = random.SystemRandom()
-    return generator.randrange(0, upper_bound)
+    return generator.randrange(0, stop=upper_bound)
 
 
 def get_random_choice(alist):
@@ -320,7 +320,7 @@ def convert_png_binary_to_data_url(content):
     Raises:
         Exception: If the given binary string is not of a PNG image.
     """
-    if imghdr.what(None, content) == 'png':
+    if imghdr.what(None, h=content) == 'png':
         return 'data:image/png;base64,%s' % urllib.quote(
             content.encode('base64'))
     else:
@@ -397,7 +397,8 @@ class JSONEncoderForHTML(json.JSONEncoder):
         return ''.join(chunks) if self.ensure_ascii else u''.join(chunks)
 
     def iterencode(self, o, _one_shot=False):
-        chunks = super(JSONEncoderForHTML, self).iterencode(o, _one_shot)
+        chunks = super(
+            JSONEncoderForHTML, self).iterencode(o, _one_shot=_one_shot)
         for chunk in chunks:
             yield chunk.replace('&', '\\u0026').replace(
                 '<', '\\u003c').replace('>', '\\u003e')
@@ -510,7 +511,7 @@ def vfs_construct_path(base_path, *path_components):
 
 def vfs_normpath(path):
     """Normalize path from posixpath.py, eliminating double slashes, etc."""
-    # Preserve unicode (if path is unicode)
+    # Preserve unicode (if path is unicode).
     slash, dot = (u'/', u'.') if isinstance(path, unicode) else ('/', '.')
     if path == '':
         return dot
@@ -568,7 +569,7 @@ def require_valid_name(name, name_type, allow_empty=False):
         raise ValidationError(
             'Adjacent whitespace in %s should be collapsed.' % name_type)
 
-    for character in feconf.INVALID_NAME_CHARS:
+    for character in constants.INVALID_NAME_CHARS:
         if character in name:
             raise ValidationError(
                 'Invalid character %s in %s: %s' %
@@ -625,12 +626,28 @@ def get_thumbnail_icon_url_for_category(category):
     return '/subjects/%s.svg' % (icon_name.replace(' ', ''))
 
 
+def is_valid_language_code(language_code):
+    """Checks if the given language code is a valid language code.
+
+    Args:
+        language_code: str. The language code.
+
+    Returns:
+        bool. Whether the language code is valid or not.
+    """
+    language_codes = [lc['code'] for lc in constants.ALL_LANGUAGE_CODES]
+    return language_code in language_codes
+
+
 def _get_short_language_description(full_language_description):
     """Given one of the descriptions in constants.ALL_LANGUAGE_CODES, generates
     the corresponding short description.
 
     Args:
         full_language_description: str. Short description of the language.
+
+    Returns:
+        str. Short description of the language.
     """
     if ' (' not in full_language_description:
         return full_language_description
@@ -663,20 +680,10 @@ def get_asset_dir_prefix():
     It is used as a prefix in urls for images, css and script files.
     """
     asset_dir_prefix = ''
-    if not feconf.DEV_MODE:
+    if not constants.DEV_MODE:
         asset_dir_prefix = '/build'
 
     return asset_dir_prefix
-
-
-def get_template_dir_prefix():
-    """Returns prefix for template directory depending whether dev or prod.
-    It is used as a prefix in urls for js script files under the templates
-    directory.
-    """
-    template_path = (
-        '/templates/head' if not feconf.DEV_MODE else '/templates/dev/head')
-    return '%s%s' % (get_asset_dir_prefix(), template_path)
 
 
 def convert_to_str(string_to_convert):

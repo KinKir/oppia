@@ -39,16 +39,23 @@ describe('Assets Backend API Service', function() {
   }));
 
   afterEach(function() {
-    $httpBackend.verifyNoOutstandingExpectation();
     $httpBackend.verifyNoOutstandingRequest();
   });
 
-  it('Should successfully fetch and cache audio', function() {
+  it('should correctly formulate the download URL', function() {
+    // TODO(sll): Find a way to substitute out constants.DEV_MODE so that we
+    // can test the production URL, too.
+    expect(
+      AssetsBackendApiService.getAudioDownloadUrl('expid12345', 'a.mp3')
+    ).toEqual('/assetsdevhandler/expid12345/assets/audio/a.mp3');
+  });
+
+  it('should successfully fetch and cache audio', function() {
     var successHandler = jasmine.createSpy('success');
     var failHandler = jasmine.createSpy('fail');
 
     var requestUrl = UrlInterpolationService.interpolateUrl(
-      '/audiohandler/<exploration_id>/audio/<filename>', {
+      '/assetsdevhandler/<exploration_id>/assets/audio/<filename>', {
         exploration_id: '0',
         filename: 'myfile.mp3'
       });
@@ -59,32 +66,160 @@ describe('Assets Backend API Service', function() {
 
     AssetsBackendApiService.loadAudio('0', 'myfile.mp3').then(
       successHandler, failHandler);
-    expect(AssetsBackendApiService.getFilesCurrentlyBeingRequested().length)
-      .toBe(1);
+    expect((AssetsBackendApiService.getAssetsFilesCurrentlyBeingRequested())
+      .audio.length).toBe(1);
     $httpBackend.flush();
-    expect(AssetsBackendApiService.getFilesCurrentlyBeingRequested().length)
-      .toBe(0);
+    expect((AssetsBackendApiService.getAssetsFilesCurrentlyBeingRequested())
+      .audio.length).toBe(0);
     expect(AssetsBackendApiService.isCached('myfile.mp3')).toBe(true);
     expect(successHandler).toHaveBeenCalled();
     expect(failHandler).not.toHaveBeenCalled();
+    $httpBackend.verifyNoOutstandingExpectation();
   });
 
-  it('Should call the provided failure handler on HTTP failure', function() {
+  it('should successfully fetch and cache image', function() {
     var successHandler = jasmine.createSpy('success');
     var failHandler = jasmine.createSpy('fail');
 
     var requestUrl = UrlInterpolationService.interpolateUrl(
-      '/audiohandler/<exploration_id>/audio/<filename>', {
+      '/assetsdevhandler/<exploration_id>/assets/image/<filename>', {
+        exploration_id: '0',
+        filename: 'myfile.png'
+      });
+
+    $httpBackend.expect('GET', requestUrl).respond(201, 'image data');
+    expect(AssetsBackendApiService.isCached('myfile.png')).toBe(false);
+
+
+    AssetsBackendApiService.loadImage('0', 'myfile.png').then(
+      successHandler, failHandler);
+    expect((AssetsBackendApiService.getAssetsFilesCurrentlyBeingRequested())
+      .image.length).toBe(1);
+    $httpBackend.flush();
+    expect((AssetsBackendApiService.getAssetsFilesCurrentlyBeingRequested())
+      .image.length).toBe(0);
+    expect(AssetsBackendApiService.isCached('myfile.png')).toBe(true);
+    expect(successHandler).toHaveBeenCalled();
+    expect(failHandler).not.toHaveBeenCalled();
+    $httpBackend.verifyNoOutstandingExpectation();
+  });
+
+  it('should call the provided failure handler on HTTP failure for an audio',
+    function() {
+      var successHandler = jasmine.createSpy('success');
+      var failHandler = jasmine.createSpy('fail');
+
+      var requestUrl = UrlInterpolationService.interpolateUrl(
+        '/assetsdevhandler/<exploration_id>/assets/audio/<filename>', {
+          exploration_id: '0',
+          filename: 'myfile.mp3'
+        });
+
+      $httpBackend.expect('GET', requestUrl).respond(500, 'MutagenError');
+      AssetsBackendApiService.loadAudio('0', 'myfile.mp3').then(
+        successHandler, failHandler);
+      $httpBackend.flush();
+
+      expect(successHandler).not.toHaveBeenCalled();
+      expect(failHandler).toHaveBeenCalled();
+      $httpBackend.verifyNoOutstandingExpectation();
+    });
+
+  it('should call the provided failure handler on HTTP failure for an image',
+    function() {
+      var successHandler = jasmine.createSpy('success');
+      var failHandler = jasmine.createSpy('fail');
+
+      var requestUrl = UrlInterpolationService.interpolateUrl(
+        '/assetsdevhandler/<exploration_id>/assets/image/<filename>', {
+          exploration_id: '0',
+          filename: 'myfile.png'
+        });
+
+      $httpBackend.expect('GET', requestUrl).respond(500, 'Error');
+      AssetsBackendApiService.loadImage('0', 'myfile.png').then(
+        successHandler, failHandler);
+      $httpBackend.flush();
+
+      expect(successHandler).not.toHaveBeenCalled();
+      expect(failHandler).toHaveBeenCalled();
+      $httpBackend.verifyNoOutstandingExpectation();
+    });
+
+  it('should successfully abort the download of all the audio files',
+    function() {
+      var successHandler = jasmine.createSpy('success');
+      var failHandler = jasmine.createSpy('fail');
+
+      var requestUrl = UrlInterpolationService.interpolateUrl(
+        '/assetsdevhandler/<exploration_id>/assets/audio/<filename>', {
+          exploration_id: '0',
+          filename: 'myfile.mp3'
+        });
+
+      $httpBackend.expect('GET', requestUrl).respond(201, 'audio data');
+
+      AssetsBackendApiService.loadAudio('0', 'myfile.mp3').then(
+        successHandler, failHandler);
+
+      expect(AssetsBackendApiService.getAssetsFilesCurrentlyBeingRequested()
+        .audio.length).toBe(1);
+
+      AssetsBackendApiService.abortAllCurrentAudioDownloads();
+      $httpBackend.verifyNoOutstandingRequest();
+      expect(AssetsBackendApiService.getAssetsFilesCurrentlyBeingRequested()
+        .audio.length).toBe(0);
+      expect(AssetsBackendApiService.isCached('myfile.mp3')).toBe(false);
+    });
+
+  it('should successfully abort the download of the all the image files',
+    function() {
+      var successHandler = jasmine.createSpy('success');
+      var failHandler = jasmine.createSpy('fail');
+
+      var requestUrl = UrlInterpolationService.interpolateUrl(
+        'assetsdevhandler/<exploration_id>/assets/image/<filename>', {
+          exploration_id: '0',
+          filename: 'myfile.png'
+        });
+
+      $httpBackend.expect('GET', requestUrl).respond(201, 'image data');
+
+      AssetsBackendApiService.loadImage('0', 'myfile.png').then(
+        successHandler, failHandler);
+
+      expect(AssetsBackendApiService.getAssetsFilesCurrentlyBeingRequested()
+        .image.length).toBe(1);
+
+      AssetsBackendApiService.abortAllCurrentImageDownloads();
+      $httpBackend.verifyNoOutstandingRequest();
+      expect(AssetsBackendApiService.getAssetsFilesCurrentlyBeingRequested()
+        .image.length).toBe(0);
+      expect(AssetsBackendApiService.isCached('myfile.png')).toBe(false);
+    });
+
+  it('should use the correct blob type for audio assets', function() {
+    var successHandler = jasmine.createSpy('success');
+    var failHandler = jasmine.createSpy('fail');
+
+    var requestUrl = UrlInterpolationService.interpolateUrl(
+      '/assetsdevhandler/<exploration_id>/assets/audio/<filename>', {
         exploration_id: '0',
         filename: 'myfile.mp3'
       });
 
-    $httpBackend.expect('GET', requestUrl).respond(500, 'MutagenError');
+    $httpBackend.expect('GET', requestUrl).respond(201, 'audio data');
     AssetsBackendApiService.loadAudio('0', 'myfile.mp3').then(
       successHandler, failHandler);
+    expect((AssetsBackendApiService.getAssetsFilesCurrentlyBeingRequested())
+      .audio.length).toBe(1);
     $httpBackend.flush();
+    expect((AssetsBackendApiService.getAssetsFilesCurrentlyBeingRequested())
+      .audio.length).toBe(0);
 
-    expect(successHandler).not.toHaveBeenCalled();
-    expect(failHandler).toHaveBeenCalled();
+    expect(successHandler).toHaveBeenCalled();
+    expect(failHandler).not.toHaveBeenCalled();
+    expect(successHandler.calls.first().args[0].data.type).toBe('audio/mpeg');
+    $httpBackend.verifyNoOutstandingExpectation();
   });
 });

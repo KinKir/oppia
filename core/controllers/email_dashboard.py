@@ -40,6 +40,8 @@ class EmailDashboardPage(base.BaseHandler):
 class EmailDashboardDataHandler(base.BaseHandler):
     """Query data handler."""
 
+    GET_HANDLER_ERROR_RETURN_TYPE = feconf.HANDLER_TYPE_JSON
+
     @acl_decorators.can_manage_email_dashboard
     def get(self):
         cursor = self.request.get('cursor')
@@ -123,8 +125,10 @@ class EmailDashboardDataHandler(base.BaseHandler):
                 raise self.InvalidInputException('400 Invalid input for query.')
 
 
-class QueryStatusCheck(base.BaseHandler):
+class QueryStatusCheckHandler(base.BaseHandler):
     """Handler for checking status of individual queries."""
+
+    GET_HANDLER_ERROR_RETURN_TYPE = feconf.HANDLER_TYPE_JSON
 
     @acl_decorators.can_manage_email_dashboard
     def get(self):
@@ -158,7 +162,7 @@ class EmailDashboardResultPage(base.BaseHandler):
 
         if query_model.submitter_id != self.user_id:
             raise self.UnauthorizedUserException(
-                '%s is not an authorized user for this query.', self.user_id)
+                '%s is not an authorized user for this query.' % self.user_id)
 
         self.values.update({
             'query_id': query_id,
@@ -175,7 +179,7 @@ class EmailDashboardResultPage(base.BaseHandler):
 
         if query_model.submitter_id != self.user_id:
             raise self.UnauthorizedUserException(
-                '%s is not an authorized user for this query.', self.user_id)
+                '%s is not an authorized user for this query.' % self.user_id)
 
         data = self.payload['data']
         email_subject = data['email_subject']
@@ -199,7 +203,7 @@ class EmailDashboardCancelEmailHandler(base.BaseHandler):
 
         if query_model.submitter_id != self.user_id:
             raise self.UnauthorizedUserException(
-                '%s is not an authorized user for this query.', self.user_id)
+                '%s is not an authorized user for this query.' % self.user_id)
         query_model.query_status = feconf.USER_QUERY_STATUS_ARCHIVED
         query_model.put()
         self.render_json({})
@@ -221,7 +225,7 @@ class EmailDashboardTestBulkEmailHandler(base.BaseHandler):
 
         if query_model.submitter_id != self.user_id:
             raise self.UnauthorizedUserException(
-                '%s is not an authorized user for this query.', self.user_id)
+                '%s is not an authorized user for this query.' % self.user_id)
 
         email_subject = self.payload['email_subject']
         email_body = self.payload['email_body']

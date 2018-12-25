@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Python configuration for ItemSelectionInput interaction."""
+
 from extensions.interactions import base
 
 
@@ -82,5 +84,5 @@ class ItemSelectionInput(base.BaseInteraction):
             'title': 'Top answers',
         },
         'calculation_id': 'Top10AnswerFrequencies',
-        'show_addressed_info': True,
+        'addressed_info_is_supported': True,
     }]

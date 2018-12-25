@@ -19,10 +19,7 @@ oppia.directive('oppiaInteractiveLogicProof', [
     return {
       restrict: 'E',
       scope: {
-        onSubmit: '&',
         getLastAnswer: '&lastAnswer',
-        // This should be called whenever the answer changes.
-        setAnswerValidity: '&'
       },
       templateUrl: UrlInterpolationService.getExtensionResourceUrl(
         '/interactions/LogicProof/directives/' +
@@ -30,16 +27,16 @@ oppia.directive('oppiaInteractiveLogicProof', [
       controller: [
         '$scope', '$attrs', '$uibModal', 'logicProofRulesService',
         'WindowDimensionsService', 'UrlService',
-        'ExplorationPlayerService', 'EVENT_PROGRESS_NAV_SUBMITTED',
+        'CurrentInteractionService',
         function(
             $scope, $attrs, $uibModal, logicProofRulesService,
             WindowDimensionsService, UrlService,
-            ExplorationPlayerService, EVENT_PROGRESS_NAV_SUBMITTED) {
+            CurrentInteractionService) {
           $scope.localQuestionData = HtmlEscaperService.escapedJsonToObj(
             $attrs.questionWithValue);
 
           // This is the information about how to mark a question (e.g. the
-          // permited line templates) that is stored in defaultData.js within
+          // permitted line templates) that is stored in defaultData.js within
           // the dependencies.
           $scope.questionData = angular.copy(LOGIC_PROOF_DEFAULT_QUESTION_DATA);
 
@@ -82,15 +79,15 @@ oppia.directive('oppiaInteractiveLogicProof', [
             ) + ' and ' + logicProofShared.displayExpression(
               $scope.questionData.assumptions[
                 $scope.questionData.assumptions.length - 1],
-                $scope.questionData.language.operators);
+              $scope.questionData.language.operators);
           }
           $scope.targetString = logicProofShared.displayExpression(
             $scope.questionData.results[0],
             $scope.questionData.language.operators);
           $scope.questionString = (
             $scope.assumptionsString === '' ?
-            'I18N_INTERACTIONS_LOGIC_PROOF_QUESTION_STR_NO_ASSUMPTION' :
-            'I18N_INTERACTIONS_LOGIC_PROOF_QUESTION_STR_ASSUMPTIONS');
+              'I18N_INTERACTIONS_LOGIC_PROOF_QUESTION_STR_NO_ASSUMPTION' :
+              'I18N_INTERACTIONS_LOGIC_PROOF_QUESTION_STR_ASSUMPTIONS');
           $scope.questionStringData = {
             target: $scope.targetString,
             assumptions: $scope.assumptionsString
@@ -210,12 +207,12 @@ oppia.directive('oppiaInteractiveLogicProof', [
             // can make the invalid line bold.
             return (errorLineNum === undefined) ?
               [numberedLines.join('\n')] :
-            [
-              numberedLines.slice(0, errorLineNum).join('\n'),
-              numberedLines[errorLineNum],
-              numberedLines.slice(
-                errorLineNum + 1, numberedLines.length).join('\n')
-            ];
+              [
+                numberedLines.slice(0, errorLineNum).join('\n'),
+                numberedLines[errorLineNum],
+                numberedLines.slice(
+                  errorLineNum + 1, numberedLines.length).join('\n')
+              ];
           };
 
           // NOTE: proof_num_lines, displayed_question and displayed_proof are
@@ -254,13 +251,12 @@ oppia.directive('oppiaInteractiveLogicProof', [
               submission.displayed_proof = $scope.displayProof(
                 $scope.proofString);
             }
-            $scope.onSubmit({
-              answer: submission,
-              rulesService: logicProofRulesService
-            });
+            CurrentInteractionService.onSubmit(
+              submission, logicProofRulesService);
           };
 
-          $scope.$on(EVENT_PROGRESS_NAV_SUBMITTED, $scope.submitProof);
+          CurrentInteractionService.registerCurrentInteraction(
+            $scope.submitProof, null);
 
           $scope.showHelp = function() {
             $uibModal.open({

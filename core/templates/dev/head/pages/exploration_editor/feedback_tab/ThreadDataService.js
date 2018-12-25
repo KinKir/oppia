@@ -18,18 +18,20 @@
  */
 
 oppia.factory('ThreadDataService', [
-  '$http', '$q', 'ExplorationDataService', 'AlertsService',
-  'ACTION_ACCEPT_SUGGESTION',
+  '$http', '$log', '$q', 'ExplorationDataService', 'AlertsService',
+  'FeedbackThreadObjectFactory', 'SuggestionObjectFactory',
+  'SuggestionThreadObjectFactory', 'ACTION_ACCEPT_SUGGESTION',
   function(
-      $http, $q, ExplorationDataService, AlertsService,
-      ACTION_ACCEPT_SUGGESTION) {
+      $http, $log, $q, ExplorationDataService, AlertsService,
+      FeedbackThreadObjectFactory, SuggestionObjectFactory,
+      SuggestionThreadObjectFactory, ACTION_ACCEPT_SUGGESTION) {
     var _expId = ExplorationDataService.explorationId;
     var _FEEDBACK_STATS_HANDLER_URL = '/feedbackstatshandler/' + _expId;
     var _THREAD_LIST_HANDLER_URL = '/threadlisthandler/' + _expId;
-    var _SUGGESTION_LIST_HANDLER_URL = '/suggestionlisthandler/' + _expId;
+    var _SUGGESTION_LIST_HANDLER_URL = '/suggestionlisthandler';
     var _SUGGESTION_ACTION_HANDLER_URL = '/suggestionactionhandler/' +
-      _expId + '/';
-    var _THREAD_HANDLER_PREFIX = '/threadhandler/' + _expId + '/';
+        'exploration/' + _expId + '/';
+    var _THREAD_HANDLER_PREFIX = '/threadhandler/';
     var _FEEDBACK_THREAD_VIEW_EVENT_URL = '/feedbackhandler/thread_view_event';
     var _THREAD_STATUS_OPEN = 'open';
 
@@ -45,17 +47,40 @@ oppia.factory('ThreadDataService', [
     var _openThreadsCount = 0;
 
     var _fetchThreads = function(successCallback) {
-      var fPromise = $http.get(_THREAD_LIST_HANDLER_URL);
-      var sPromise = $http.get(_SUGGESTION_LIST_HANDLER_URL, {
-        params: {
-          list_type: 'all',
-          has_suggestion: true
-        }
+      var threadsPromise = $http.get(_THREAD_LIST_HANDLER_URL);
+      params = {
+        target_type: 'exploration',
+        target_id: _expId
+      };
+      var suggestionsPromise = $http.get(_SUGGESTION_LIST_HANDLER_URL, {
+        params: params
       });
 
-      $q.all([fPromise, sPromise]).then(function(res) {
-        _data.feedbackThreads = res[0].data.threads;
-        _data.suggestionThreads = res[1].data.threads;
+      $q.all([threadsPromise, suggestionsPromise]).then(function(res) {
+        _data.feedbackThreads = res[0].data.feedback_thread_dicts.map(
+          FeedbackThreadObjectFactory.createFromBackendDict);
+
+        _data.suggestionThreads = [];
+        var suggestionThreads = res[0].data.suggestion_thread_dicts;
+        if (suggestionThreads.length !== res[1].data.suggestions.length) {
+          $log.error('Number of suggestion threads doesn\'t match number of' +
+                     'suggestion objects');
+        }
+        for (var i = 0; i < suggestionThreads.length; i++) {
+          for (var j = 0; j < res[1].data.suggestions.length; j++) {
+            var suggestion = (
+              SuggestionObjectFactory.createFromBackendDict(
+                res[1].data.suggestions[j]));
+            if (suggestionThreads[i].thread_id ===
+                suggestion.getThreadId()) {
+              var suggestionThread = (
+                SuggestionThreadObjectFactory.createFromBackendDicts(
+                  suggestionThreads[i], res[1].data.suggestions[j]));
+              _data.suggestionThreads.push(suggestionThread);
+              break;
+            }
+          }
+        }
         if (successCallback) {
           successCallback();
         }
@@ -66,9 +91,8 @@ oppia.factory('ThreadDataService', [
       $http.get(_THREAD_HANDLER_PREFIX + threadId).then(function(response) {
         var allThreads = _data.feedbackThreads.concat(_data.suggestionThreads);
         for (var i = 0; i < allThreads.length; i++) {
-          if (allThreads[i].thread_id === threadId) {
-            allThreads[i].messages = response.data.messages;
-            allThreads[i].suggestion = response.data.suggestion;
+          if (allThreads[i].threadId === threadId) {
+            allThreads[i].setMessages(response.data.messages);
             break;
           }
         }
@@ -108,8 +132,7 @@ oppia.factory('ThreadDataService', [
         });
       },
       markThreadAsSeen: function(threadId) {
-        var requestUrl = (
-          _FEEDBACK_THREAD_VIEW_EVENT_URL + '/' + _expId);
+        var requestUrl = _FEEDBACK_THREAD_VIEW_EVENT_URL + '/' + threadId;
         $http.post(requestUrl, {
           thread_id: threadId
         });
@@ -121,7 +144,7 @@ oppia.factory('ThreadDataService', [
         var thread = null;
 
         for (var i = 0; i < allThreads.length; i++) {
-          if (allThreads[i].thread_id === threadId) {
+          if (allThreads[i].threadId === threadId) {
             thread = allThreads[i];
             break;
           }
@@ -170,17 +193,19 @@ oppia.factory('ThreadDataService', [
         });
       },
       resolveSuggestion: function(
-          threadId, action, commitMsg, audioUpdateRequired, onSuccess,
-          onFailure) {
+          threadId, action, commitMsg, reviewMsg, audioUpdateRequired,
+          onSuccess, onFailure) {
         var payload = {
           action: action
         };
+
+        payload.review_message = reviewMsg;
         if (action === ACTION_ACCEPT_SUGGESTION) {
           payload.commit_message = commitMsg;
-          payload.audio_update_required = audioUpdateRequired;
         }
         _openThreadsCount -= 1;
-        $http.put(_SUGGESTION_ACTION_HANDLER_URL + threadId, payload).then(
+        $http.put(
+          _SUGGESTION_ACTION_HANDLER_URL + threadId, payload).then(
           onSuccess, function() {
             _openThreadsCount += 1;
             if (onFailure) {

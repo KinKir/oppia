@@ -20,6 +20,7 @@ import inspect
 
 from core import jobs_registry
 from core.domain import exp_domain
+from core.domain import exp_services
 from core.domain import stats_domain
 from core.domain import stats_services
 from core.platform import models
@@ -74,10 +75,20 @@ class StatsEventsHandler(BaseEventHandler):
     EVENT_TYPE = feconf.EVENT_TYPE_ALL_STATS
 
     @classmethod
+    def _is_latest_version(cls, exp_id, exp_version):
+        """Verifies whether the exploration version for the stats to be stored
+        corresponds to the latest version of the exploration.
+        """
+        exploration = exp_services.get_exploration_by_id(exp_id)
+        return exploration.version == exp_version
+
+    @classmethod
     def _handle_event(cls, exploration_id, exp_version, aggregated_stats):
-        taskqueue_services.defer(
-            stats_services.update_stats, taskqueue_services.QUEUE_NAME_STATS,
-            exploration_id, exp_version, aggregated_stats)
+        if cls._is_latest_version(exploration_id, exp_version):
+            taskqueue_services.defer(
+                stats_services.update_stats,
+                taskqueue_services.QUEUE_NAME_STATS, exploration_id,
+                exp_version, aggregated_stats)
 
 
 class AnswerSubmissionEventHandler(BaseEventHandler):
@@ -109,14 +120,13 @@ class AnswerSubmissionEventHandler(BaseEventHandler):
                 rule_spec_index, classification_categorization, params,
                 session_id, time_spent_in_secs))
 
-        if feconf.ENABLE_NEW_STATS_FRAMEWORK:
-            feedback_is_useful = (
-                classification_categorization != (
-                    exp_domain.DEFAULT_OUTCOME_CLASSIFICATION))
+        feedback_is_useful = (
+            classification_categorization != (
+                exp_domain.DEFAULT_OUTCOME_CLASSIFICATION))
 
-            stats_models.AnswerSubmittedEventLogEntryModel.create(
-                exploration_id, exploration_version, state_name, session_id,
-                time_spent_in_secs, feedback_is_useful)
+        stats_models.AnswerSubmittedEventLogEntryModel.create(
+            exploration_id, exploration_version, state_name, session_id,
+            time_spent_in_secs, feedback_is_useful)
 
 
 class ExplorationActualStartEventHandler(BaseEventHandler):
@@ -203,7 +213,7 @@ class StateHitEventHandler(BaseEventHandler):
 
     EVENT_TYPE = feconf.EVENT_TYPE_STATE_HIT
 
-    # TODO(sll): remove params before sending this event to the jobs taskqueue
+    # TODO(sll): remove params before sending this event to the jobs taskqueue.
     @classmethod
     def _handle_event(
             cls, exp_id, exp_version, state_name, session_id,

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Common utilities for performance test classes"""
+"""Common utilities for performance test classes."""
 
 import random
 import unittest
@@ -25,6 +25,7 @@ from core.tests.performance_tests import test_config
 
 class TestBase(unittest.TestCase):
     """Base class for performance tests."""
+
     # The default number of page load sessions used to collect timing metrics.
     DEFAULT_SESSION_SAMPLE_COUNT = 3
 

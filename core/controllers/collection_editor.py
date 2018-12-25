@@ -61,7 +61,6 @@ class CollectionEditorPage(CollectionEditorHandler):
 
         self.values.update({
             'collection_id': collection.id,
-            'nav_mode': feconf.NAV_MODE_CREATE,
             'SHOW_COLLECTION_NAVIGATION_TAB_HISTORY': (
                 feconf.SHOW_COLLECTION_NAVIGATION_TAB_HISTORY),
             'SHOW_COLLECTION_NAVIGATION_TAB_STATS': (
@@ -75,8 +74,11 @@ class CollectionEditorPage(CollectionEditorHandler):
 class EditableCollectionDataHandler(CollectionEditorHandler):
     """A data handler for collections which supports writing."""
 
+    GET_HANDLER_ERROR_RETURN_TYPE = feconf.HANDLER_TYPE_JSON
+
     def _require_valid_version(self, version_from_payload, collection_version):
-        """Check that the payload version matches the given collection version.
+        """Check that the payload version matches the given collection
+        version.
         """
         if version_from_payload is None:
             raise base.BaseHandler.InvalidInputException(
@@ -93,7 +95,7 @@ class EditableCollectionDataHandler(CollectionEditorHandler):
         """Populates the data on the individual collection page."""
 
         try:
-            # Try to retrieve collection
+            # Try to retrieve collection.
             collection_dict = (
                 summary_services.get_learner_collection_dict_by_id(
                     collection_id, self.user,
@@ -139,6 +141,8 @@ class EditableCollectionDataHandler(CollectionEditorHandler):
 
 class CollectionRightsHandler(CollectionEditorHandler):
     """Handles management of collection editing rights."""
+
+    GET_HANDLER_ERROR_RETURN_TYPE = feconf.HANDLER_TYPE_JSON
 
     @acl_decorators.can_edit_collection
     def get(self, collection_id):
@@ -232,6 +236,8 @@ class CollectionUnpublishHandler(base.BaseHandler):
 
 class ExplorationMetadataSearchHandler(base.BaseHandler):
     """Provides data for exploration search."""
+
+    GET_HANDLER_ERROR_RETURN_TYPE = feconf.HANDLER_TYPE_JSON
 
     @acl_decorators.open_access
     def get(self):

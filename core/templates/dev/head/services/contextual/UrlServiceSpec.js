@@ -65,13 +65,13 @@ describe('Url Service', function() {
       var expectedUrl1 = baseUrl + '?field%201=%26value%3D1%3F';
       expect(
         UrlService.addField(baseUrl, queryField, queryValue)).toBe(
-          expectedUrl1);
+        expectedUrl1);
 
       baseUrl = '/sample?field=value';
       var expectedUrl2 = baseUrl + '&field%201=%26value%3D1%3F';
       expect(
         UrlService.addField(baseUrl, queryField, queryValue)).toBe(
-          expectedUrl2);
+        expectedUrl2);
     });
 
   it('should correctly return true if embed present in pathname', function() {
@@ -85,5 +85,90 @@ describe('Url Service', function() {
 
   it('should correctly return hash value of window.location', function() {
     expect(UrlService.getHash()).toBe(sampleHash);
+  });
+
+  it('should correctly retrieve topic id from url', function() {
+    mockLocation.pathname = '/topic_editor/abcdefgijklm';
+    expect(
+      UrlService.getTopicIdFromUrl()
+    ).toBe('abcdefgijklm');
+    mockLocation.pathname = '/topic_editor/abcdefgij';
+    expect(function() {
+      UrlService.getTopicIdFromUrl();
+    }).toThrow();
+
+    mockLocation.pathname = '/topiceditor/abcdefgijklm';
+    expect(function() {
+      UrlService.getTopicIdFromUrl();
+    }).toThrow();
+
+    mockLocation.pathname = '/topic_editor';
+    expect(function() {
+      UrlService.getTopicIdFromUrl();
+    }).toThrow();
+  });
+
+  it('should correctly retrieve topic name from url', function() {
+    mockLocation.pathname = '/topic/abcdefgijklm';
+    expect(
+      UrlService.getTopicNameFromLearnerUrl()
+    ).toBe('abcdefgijklm');
+    mockLocation.pathname = '/topic/topic%20name';
+    expect(
+      UrlService.getTopicNameFromLearnerUrl()
+    ).toBe('topic name');
+    mockLocation.pathname = '/topc/abcdefgijklm';
+    expect(function(){
+      UrlService.getTopicNameFromLearnerUrl();
+    }).toThrowError('Invalid URL for topic');
+  });
+
+  it('should correctly retrieve story id from url', function() {
+    mockLocation.pathname = '/story_editor/abcdefgijklm';
+    expect(function(){
+      UrlService.getStoryIdFromUrl();
+    }).toThrow();
+
+    mockLocation.pathname = '/storyeditor/abcdefgijklm/012345678901';
+    expect(function(){
+      UrlService.getStoryIdFromUrl();
+    }).toThrow();
+
+    mockLocation.pathname = '/story_editor/abcdefgijlm/012345678901';
+    expect(function(){
+      UrlService.getStoryIdFromUrl();
+    }).toThrow();
+
+    mockLocation.pathname = '/story_editor/abcdefgijklm/01234578901';
+    expect(function() {
+      UrlService.getStoryIdFromUrl();
+    }).toThrow();
+
+    mockLocation.pathname = '/story_editor/abcdefgijklm/012345678901';
+    expect(
+      UrlService.getStoryIdFromUrl()
+    ).toEqual('012345678901');
+  });
+
+  it('should correctly retrieve skill id from url', function() {
+    mockLocation.pathname = '/skill_editor/abcdefghijkl';
+    expect(
+      UrlService.getSkillIdFromUrl()
+    ).toBe('abcdefghijkl');
+    mockLocation.pathname = '/skill_editor/abcdefghijk';
+    expect(function() {
+      UrlService.getSkillIdFromUrl();
+    }).toThrow();
+  });
+
+  it('should correctly retrieve story id from url in player', function() {
+    mockLocation.search = '?story_id=mnopqrstuvwx';
+    expect(
+      UrlService.getStoryIdInPlayer()
+    ).toBe('mnopqrstuvwx');
+    mockLocation.search = '?story=mnopqrstuvwx';
+    expect(
+      UrlService.getStoryIdInPlayer()
+    ).toBe(null);
   });
 });

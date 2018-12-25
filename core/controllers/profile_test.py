@@ -15,6 +15,7 @@
 """Tests for the profile page."""
 
 from constants import constants
+from core.domain import exp_domain
 from core.domain import exp_services
 from core.domain import rights_manager
 from core.domain import subscription_services
@@ -24,13 +25,13 @@ import feconf
 import utils
 
 
-class SignupTest(test_utils.GenericTestBase):
+class SignupTests(test_utils.GenericTestBase):
 
     def test_signup_page_does_not_have_top_right_menu(self):
         self.login(self.EDITOR_EMAIL)
         response = self.testapp.get(feconf.SIGNUP_URL)
         self.assertEqual(response.status_int, 200)
-        # Sign in can't be inside an html tag, but can appear inside js code
+        # Sign in can't be inside an html tag, but can appear inside js code.
         response.mustcontain(no=['Logout'])
         self.logout()
 
@@ -125,7 +126,7 @@ class SignupTest(test_utils.GenericTestBase):
             {'agreed_to_terms': True, 'username': 'creatoruser',
              'default_dashboard': constants.DASHBOARD_TYPE_CREATOR,
              'can_receive_email_updates': None},
-            csrf_token)
+            csrf_token=csrf_token)
 
         user_id = user_services.get_user_id_from_username('creatoruser')
         user_settings = user_services.get_user_settings(user_id)
@@ -144,7 +145,7 @@ class SignupTest(test_utils.GenericTestBase):
             {'agreed_to_terms': True, 'username': 'learneruser',
              'default_dashboard': constants.DASHBOARD_TYPE_LEARNER,
              'can_receive_email_updates': None},
-            csrf_token)
+            csrf_token=csrf_token)
 
         user_id = user_services.get_user_id_from_username('learneruser')
         user_settings = user_services.get_user_settings(user_id)
@@ -166,16 +167,18 @@ class UsernameCheckHandlerTests(test_utils.GenericTestBase):
         response_dict = self.post_json(
             feconf.USERNAME_CHECK_DATA_URL, {'username': 'abc'},
             csrf_token=csrf_token)
-        self.assertEqual(response_dict, {
-            'username_is_taken': True
-        })
+        self.assertEqual(
+            response_dict, {
+                'username_is_taken': True
+            })
 
         response_dict = self.post_json(
             feconf.USERNAME_CHECK_DATA_URL, {'username': 'def'},
             csrf_token=csrf_token)
-        self.assertEqual(response_dict, {
-            'username_is_taken': False
-        })
+        self.assertEqual(
+            response_dict, {
+                'username_is_taken': False
+            })
 
         response_dict = self.post_json(
             feconf.USERNAME_CHECK_DATA_URL, {'username': '!!!INVALID!!!'},
@@ -493,7 +496,7 @@ class ProfileDataHandlerTests(test_utils.GenericTestBase):
         self.assertEqual(response['subject_interests'], ['editor', 'editing'])
         self.logout()
 
-        # Looged-out user looks at editor's profile page/
+        # Looged-out user looks at editor's profile page.
         response = self.get_json(
             '/profilehandler/data/%s' % self.EDITOR_USERNAME)
         self.assertEqual(response['user_bio'], 'My new editor bio')
@@ -595,11 +598,12 @@ class UserContributionsTests(test_utils.GenericTestBase):
             self.EXP_ID_1, user_a_id, end_state_name='End')
         rights_manager.publish_exploration(user_a, self.EXP_ID_1)
 
-        exp_services.update_exploration(user_b_id, self.EXP_ID_1, [{
-            'cmd': 'edit_exploration_property',
-            'property_name': 'objective',
-            'new_value': 'the objective'
-        }], 'Test edit')
+        exp_services.update_exploration(
+            user_b_id, self.EXP_ID_1, [exp_domain.ExplorationChange({
+                'cmd': 'edit_exploration_property',
+                'property_name': 'objective',
+                'new_value': 'the objective'
+            })], 'Test edit')
 
         response_dict = self.get_json(
             '/profilehandler/data/%s' % self.USERNAME_B)
@@ -618,7 +622,8 @@ class UserContributionsTests(test_utils.GenericTestBase):
 class SiteLanguageHandlerTests(test_utils.GenericTestBase):
 
     def test_save_site_language_handler(self):
-        """Test the language is saved in the preferences when handler is called.
+        """Test the language is saved in the preferences when handler is
+        called.
         """
         self.signup(self.EDITOR_EMAIL, self.EDITOR_USERNAME)
         language_code = 'es'
@@ -626,10 +631,11 @@ class SiteLanguageHandlerTests(test_utils.GenericTestBase):
         response = self.testapp.get('/preferences')
         self.assertEqual(response.status_int, 200)
         csrf_token = self.get_csrf_token_from_response(response)
-        self.put_json('/preferenceshandler/data', {
-            'update_type': 'preferred_site_language_code',
-            'data': language_code,
-        }, csrf_token)
+        self.put_json(
+            '/preferenceshandler/data', {
+                'update_type': 'preferred_site_language_code',
+                'data': language_code,
+            }, csrf_token=csrf_token)
 
         preferences = self.get_json('/preferenceshandler/data')
         self.assertIsNotNone(preferences)
@@ -651,10 +657,11 @@ class LongUserBioHandlerTests(test_utils.GenericTestBase):
         response = self.testapp.get('/preferences')
         self.assertEqual(response.status_int, 200)
         csrf_token = self.get_csrf_token_from_response(response)
-        self.put_json('/preferenceshandler/data', {
-            'update_type': 'user_bio',
-            'data': 'I am within 2000 char limit',
-        }, csrf_token)
+        self.put_json(
+            '/preferenceshandler/data', {
+                'update_type': 'user_bio',
+                'data': 'I am within 2000 char limit',
+            }, csrf_token=csrf_token)
         preferences = self.get_json('/preferenceshandler/data')
         self.assertIsNotNone(preferences)
         self.assertEqual(
@@ -679,3 +686,25 @@ class LongUserBioHandlerTests(test_utils.GenericTestBase):
         self.assertIn('User bio exceeds maximum character limit: 2000',
                       user_bio_response['error'])
         self.logout()
+
+
+class UserInfoHandlerTests(test_utils.GenericTestBase):
+
+    def test_user_info_handler(self):
+        """Test the language is saved in the preferences when handler is
+        called.
+        """
+        self.signup(self.EDITOR_EMAIL, self.EDITOR_USERNAME)
+        self.login(self.EDITOR_EMAIL)
+        json_response = self.get_json('/userinfohandler')
+        self.assertDictContainsSubset({
+            'is_moderator': False,
+            'is_admin': False,
+            'is_super_admin': False,
+            'can_create_collections': False,
+            'username': self.EDITOR_USERNAME,
+            'user_is_logged_in': True}, json_response)
+        self.logout()
+
+        self.get_json('/userinfohandler', expect_errors=True,
+                      expected_status_int=401)

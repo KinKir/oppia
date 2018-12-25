@@ -47,7 +47,9 @@ oppia.directive('explorationSummaryTile', [
         isPlaylistTile: '&isPlaylistTile',
         getParentExplorationIds: '&parentExplorationIds',
         showLearnerDashboardIconsIfPossible: (
-          '&showLearnerDashboardIconsIfPossible')
+          '&showLearnerDashboardIconsIfPossible'),
+        isContainerNarrow: '&containerIsNarrow',
+        isOwnedByCurrentUser: '&activityIsOwnedByCurrentUser',
       },
       templateUrl: UrlInterpolationService.getDirectiveTemplateUrl(
         '/components/summary_tile/' +
@@ -79,14 +81,17 @@ oppia.directive('explorationSummaryTile', [
         );
       },
       controller: [
-        '$scope', '$http', '$window',
-        'DateTimeFormatService', 'RatingComputationService',
-        'WindowDimensionsService', 'UrlService',
+        '$scope', '$http', '$window', 'DateTimeFormatService',
+        'RatingComputationService', 'UrlService', 'UserService',
+        'WindowDimensionsService',
         function(
-            $scope, $http, $window,
-            DateTimeFormatService, RatingComputationService,
-            WindowDimensionsService, UrlService) {
-          $scope.userIsLoggedIn = GLOBALS.userIsLoggedIn;
+            $scope, $http, $window, DateTimeFormatService,
+            RatingComputationService, UrlService, UserService,
+            WindowDimensionsService) {
+          $scope.userIsLoggedIn = null;
+          UserService.getUserInfoAsync().then(function(userInfo) {
+            $scope.userIsLoggedIn = userInfo.isLoggedIn();
+          });
           $scope.ACTIVITY_TYPE_EXPLORATION = (
             constants.ACTIVITY_TYPE_EXPLORATION);
           var contributorsSummary = $scope.getContributorsSummary() || {};
@@ -94,9 +99,9 @@ oppia.directive('explorationSummaryTile', [
             contributorsSummary).sort(
             function(contributorUsername1, contributorUsername2) {
               var commitsOfContributor1 = contributorsSummary[
-                  contributorUsername1].num_commits;
+                contributorUsername1].num_commits;
               var commitsOfContributor2 = contributorsSummary[
-                  contributorUsername2].num_commits;
+                contributorUsername2].num_commits;
               return commitsOfContributor2 - commitsOfContributor1;
             }
           );
@@ -177,7 +182,7 @@ oppia.directive('explorationSummaryTile', [
             $scope.$apply();
           });
 
-          $scope.getCompleteThumbnailIconUrl = function () {
+          $scope.getCompleteThumbnailIconUrl = function() {
             return UrlInterpolationService.getStaticImageUrl(
               $scope.getThumbnailIconUrl());
           };

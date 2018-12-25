@@ -37,17 +37,22 @@ oppia.directive('collectionSummaryTile', [
         getCategory: '&category',
         isPlaylistTile: '&isPlaylistTile',
         showLearnerDashboardIconsIfPossible: (
-          '&showLearnerDashboardIconsIfPossible')
+          '&showLearnerDashboardIconsIfPossible'),
+        isContainerNarrow: '&containerIsNarrow',
+        isOwnedByCurrentUser: '&activityIsOwnedByCurrentUser',
       },
       templateUrl: UrlInterpolationService.getDirectiveTemplateUrl(
         '/components/summary_tile/' +
         'collection_summary_tile_directive.html'),
       controller: [
-        '$scope', 'DateTimeFormatService',
+        '$scope', 'DateTimeFormatService', 'UserService',
         'COLLECTION_VIEWER_URL', 'COLLECTION_EDITOR_URL', function(
-            $scope, DateTimeFormatService,
+            $scope, DateTimeFormatService, UserService,
             COLLECTION_VIEWER_URL, COLLECTION_EDITOR_URL) {
-          $scope.userIsLoggedIn = GLOBALS.userIsLoggedIn;
+          $scope.userIsLoggedIn = null;
+          UserService.getUserInfoAsync().then(function(userInfo) {
+            $scope.userIsLoggedIn = userInfo.isLoggedIn();
+          });
           $scope.DEFAULT_EMPTY_TITLE = 'Untitled';
           $scope.ACTIVITY_TYPE_COLLECTION = constants.ACTIVITY_TYPE_COLLECTION;
 
@@ -59,7 +64,7 @@ oppia.directive('collectionSummaryTile', [
           $scope.getCollectionLink = function() {
             var targetUrl = (
               $scope.isLinkedToEditorPage ?
-              COLLECTION_EDITOR_URL : COLLECTION_VIEWER_URL);
+                COLLECTION_EDITOR_URL : COLLECTION_VIEWER_URL);
             return UrlInterpolationService.interpolateUrl(
               targetUrl, {
                 collection_id: $scope.getCollectionId()
@@ -67,12 +72,12 @@ oppia.directive('collectionSummaryTile', [
             );
           };
 
-          $scope.getCompleteThumbnailIconUrl = function () {
+          $scope.getCompleteThumbnailIconUrl = function() {
             return UrlInterpolationService.getStaticImageUrl(
               $scope.getThumbnailIconUrl());
           };
 
-          $scope.getStaticImageUrl = function (url) {
+          $scope.getStaticImageUrl = function(url) {
             return UrlInterpolationService.getStaticImageUrl(url);
           };
 

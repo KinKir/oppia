@@ -27,16 +27,14 @@ oppia.directive('explorationFooter', [
       templateUrl: UrlInterpolationService.getDirectiveTemplateUrl(
         '/pages/exploration_player/exploration_footer_directive.html'),
       controller: [
-        '$scope', '$http', '$log', 'ExplorationContextService',
+        '$scope', '$http', '$log', 'ContextService',
         'ExplorationSummaryBackendApiService', 'WindowDimensionsService',
-        'ExplorationPlayerService',
         function(
-            $scope, $http, $log, ExplorationContextService,
-            ExplorationSummaryBackendApiService, WindowDimensionsService,
-            ExplorationPlayerService) {
-          $scope.explorationId = ExplorationContextService.getExplorationId();
-
+            $scope, $http, $log, ContextService,
+            ExplorationSummaryBackendApiService, WindowDimensionsService) {
+          $scope.explorationId = ContextService.getExplorationId();
           $scope.getStaticImageUrl = UrlInterpolationService.getStaticImageUrl;
+          $scope.iframed = GLOBALS.iframed;
 
           $scope.windowIsNarrow = WindowDimensionsService.isWindowNarrow();
           WindowDimensionsService.registerOnResizeHook(function() {

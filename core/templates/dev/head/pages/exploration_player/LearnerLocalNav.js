@@ -20,16 +20,23 @@ oppia.constant(
   'FLAG_EXPLORATION_URL_TEMPLATE', '/flagexplorationhandler/<exploration_id>');
 
 oppia.controller('LearnerLocalNav', [
-  '$scope', '$uibModal', '$http', 'ExplorationPlayerService', 'AlertsService',
-  'FocusManagerService', 'UrlInterpolationService',
+  '$scope', '$rootScope', '$http', '$uibModal', 'AlertsService',
+  'ExplorationEngineService', 'ExplorationPlayerStateService',
+  'FocusManagerService', 'UrlInterpolationService', 'UserService',
   'FLAG_EXPLORATION_URL_TEMPLATE',
   function(
-      $scope, $uibModal, $http, ExplorationPlayerService, AlertsService,
-      FocusManagerService, UrlInterpolationService,
+      $scope, $rootScope, $http, $uibModal, AlertsService,
+      ExplorationEngineService, ExplorationPlayerStateService,
+      FocusManagerService, UrlInterpolationService, UserService,
       FLAG_EXPLORATION_URL_TEMPLATE) {
-    $scope.explorationId = ExplorationPlayerService.getExplorationId();
+    $scope.explorationId = ExplorationEngineService.getExplorationId();
     $scope.canEdit = GLOBALS.canEdit;
-    $scope.username = GLOBALS.username;
+    $scope.username = '';
+    $rootScope.loadingMessage = 'Loading';
+    UserService.getUserInfoAsync().then(function(userInfo) {
+      $scope.username = userInfo.getUsername();
+      $rootScope.loadingMessage = '';
+    });
     $scope.showLearnerSuggestionModal = function() {
       $uibModal.open({
         templateUrl: UrlInterpolationService.getDirectiveTemplateUrl(
@@ -39,15 +46,19 @@ oppia.controller('LearnerLocalNav', [
         resolve: {},
         controller: [
           '$scope', '$uibModalInstance', '$timeout', 'PlayerPositionService',
-          'ExplorationPlayerService',
+          'ExplorationEngineService', 'PlayerTranscriptService',
           function(
               $scope, $uibModalInstance, $timeout, PlayerPositionService,
-              ExplorationPlayerService) {
+              ExplorationEngineService, PlayerTranscriptService) {
             var stateName = PlayerPositionService.getCurrentStateName();
-            $scope.originalHtml = ExplorationPlayerService.getStateContentHtml(
-              stateName);
+            var displayedCard = PlayerTranscriptService.getCard(
+              PlayerPositionService.getDisplayedCardIndex());
+            $scope.originalHtml = displayedCard.getContentHtml();
             $scope.description = '';
-            $scope.suggestionHtml = $scope.originalHtml;
+            // ng-model needs to bind to a property of an object on
+            // the scope (the property cannot sit directly on the scope)
+            // Reference https://stackoverflow.com/q/12618342
+            $scope.suggestionData = {suggestionHtml: $scope.originalHtml};
             $scope.showEditor = false;
             // Rte initially displays content unrendered for a split second
             $timeout(function() {
@@ -59,22 +70,39 @@ oppia.controller('LearnerLocalNav', [
             };
 
             $scope.submitSuggestion = function() {
-              $uibModalInstance.close({
-                id: ExplorationPlayerService.getExplorationId(),
-                version: ExplorationPlayerService.getExplorationVersion(),
+              data = {
+                target_id: ExplorationEngineService.getExplorationId(),
+                version: ExplorationEngineService.getExplorationVersion(),
                 stateName: stateName,
+                suggestion_type: 'edit_exploration_state_content',
+                target_type: 'exploration',
                 description: $scope.description,
-                suggestionHtml: $scope.suggestionHtml
-              });
+                suggestionHtml: $scope.suggestionData.suggestionHtml,
+              };
+              $uibModalInstance.close(data);
             };
           }]
       }).result.then(function(result) {
-        $http.post('/suggestionhandler/' + result.id, {
-          exploration_version: result.version,
-          state_name: result.stateName,
+        data = {
+          suggestion_type: result.suggestion_type,
+          target_type: result.target_type,
+          target_id: result.target_id,
+          target_version_at_submission: result.version,
+          assigned_reviewer_id: null,
+          final_reviewer_id: null,
           description: result.description,
-          suggestion_html: result.suggestionHtml
-        }).error(function(res) {
+          change: {
+            cmd: 'edit_state_property',
+            property_name: 'content',
+            state_name: result.stateName,
+            new_value: {
+              html: result.suggestionHtml
+            }
+          }
+        };
+        url = '/suggestionhandler/';
+
+        $http.post(url, data).error(function(res) {
           AlertsService.addWarning(res);
         });
         $uibModal.open({
@@ -97,7 +125,7 @@ oppia.controller('LearnerLocalNav', [
     $scope.showFlagExplorationModal = function() {
       $uibModal.open({
         templateUrl: UrlInterpolationService.getDirectiveTemplateUrl(
-            '/pages/exploration_player/flag_exploration_modal_directive.html'),
+          '/pages/exploration_player/flag_exploration_modal_directive.html'),
         backdrop: true,
         controller: [
           '$scope', '$uibModalInstance', 'PlayerPositionService',

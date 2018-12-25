@@ -26,13 +26,28 @@ from google.appengine.ext import ndb
 
 
 def create_login_url(slug):
-    """Creates a login url."""
-    return users.create_login_url(utils.set_url_query_parameter(
-        feconf.SIGNUP_URL, 'return_url', slug))
+    """Creates a login url.
+
+    Args:
+        slug: str. The URL to redirect to after login.
+
+    Returns:
+        str. The correct login URL that includes the page to redirect to.
+    """
+    return users.create_login_url(
+        dest_url=utils.set_url_query_parameter(
+            feconf.SIGNUP_URL, 'return_url', slug))
 
 
 def create_logout_url(slug):
-    """Creates a logout url."""
+    """Creates a logout url.
+
+    Args:
+        slug: str. The URL to redirect to after logout.
+
+    Returns:
+        str. The correct logout URL that includes the page to redirect to.
+    """
     logout_url = utils.set_url_query_parameter('/logout', 'return_url', slug)
     return logout_url
 
@@ -68,10 +83,7 @@ def get_user_id_from_email(email):
     key = _FakeUser(id=email, user=fake_user).put()
     obj = _FakeUser.get_by_id(key.id())
     user_id = obj.user.user_id()
-    if user_id:
-        return unicode(user_id)
-    else:
-        return None
+    return unicode(user_id) if user_id else None
 
 
 def get_current_user_id():

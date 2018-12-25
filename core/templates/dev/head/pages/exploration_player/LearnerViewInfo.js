@@ -18,11 +18,11 @@
  */
 
 oppia.controller('LearnerViewInfo', [
-  '$scope', '$uibModal', '$http', '$log', 'ExplorationContextService',
+  '$scope', '$uibModal', '$http', '$log', 'ContextService',
   'EXPLORATION_SUMMARY_DATA_URL_TEMPLATE', 'UrlInterpolationService',
-  function($scope, $uibModal, $http, $log, ExplorationContextService,
+  function($scope, $uibModal, $http, $log, ContextService,
       EXPLORATION_SUMMARY_DATA_URL_TEMPLATE, UrlInterpolationService) {
-    var explorationId = ExplorationContextService.getExplorationId();
+    var explorationId = ContextService.getExplorationId();
     var expInfo = null;
 
     $scope.showInformationCard = function() {
@@ -31,7 +31,9 @@ oppia.controller('LearnerViewInfo', [
       } else {
         $http.get(EXPLORATION_SUMMARY_DATA_URL_TEMPLATE, {
           params: {
-            stringified_exp_ids: JSON.stringify([explorationId])
+            stringified_exp_ids: JSON.stringify([explorationId]),
+            include_private_explorations: JSON.stringify(
+              true)
           }
         }).then(function(response) {
           expInfo = response.data.summaries[0];
@@ -114,6 +116,7 @@ oppia.controller('LearnerViewInfo', [
               expInfo.last_updated_msec);
             $scope.numViews = expInfo.num_views;
             $scope.objective = expInfo.objective;
+            $scope.explorationIsPrivate = (expInfo.status === 'private');
 
             $scope.cancel = function() {
               $uibModalInstance.dismiss();

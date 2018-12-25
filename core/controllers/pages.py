@@ -25,6 +25,7 @@ import feconf
 # TODO(bhenning): Convert this over to using action-based ACLs.
 def require_maintenance_mode(handler):
     """Decorator that checks whether maintenance mode is enabled in feconf."""
+
     def test_maintenance_mode(self, **kwargs):
         """Checks whether the site is in maintenance mode."""
         if not feconf.ENABLE_MAINTENANCE_MODE:
@@ -44,7 +45,6 @@ class SplashPage(base.BaseHandler):
         c_value = self.request.get('c')
         self.values.update({
             'meta_description': feconf.SPLASH_PAGE_DESCRIPTION,
-            'nav_mode': feconf.NAV_MODE_SPLASH,
         })
 
         if not c_value:
@@ -76,7 +76,6 @@ class AboutPage(base.BaseHandler):
         """Handles GET requests."""
         self.values.update({
             'meta_description': feconf.ABOUT_PAGE_DESCRIPTION,
-            'nav_mode': feconf.NAV_MODE_ABOUT,
         })
         self.render_template('pages/about/about.html')
 
@@ -89,7 +88,6 @@ class GetStartedPage(base.BaseHandler):
         """Handles GET requests."""
         self.values.update({
             'meta_description': feconf.GET_STARTED_PAGE_DESCRIPTION,
-            'nav_mode': feconf.NAV_MODE_GET_STARTED,
         })
         self.render_template('pages/get_started/get_started.html')
 
@@ -102,7 +100,6 @@ class TeachPage(base.BaseHandler):
         """Handles GET requests."""
         self.values.update({
             'meta_description': feconf.TEACH_PAGE_DESCRIPTION,
-            'nav_mode': feconf.NAV_MODE_TEACH,
         })
         self.render_template('pages/teach/teach.html')
 
@@ -115,7 +112,6 @@ class ContactPage(base.BaseHandler):
         """Handles GET requests."""
         self.values.update({
             'meta_description': feconf.CONTACT_PAGE_DESCRIPTION,
-            'nav_mode': feconf.NAV_MODE_CONTACT,
         })
         self.render_template('pages/contact/contact.html')
 
@@ -128,7 +124,6 @@ class DonatePage(base.BaseHandler):
         """Handles GET requests."""
         self.values.update({
             'meta_description': feconf.DONATE_PAGE_DESCRIPTION,
-            'nav_mode': feconf.NAV_MODE_DONATE,
         })
         self.render_template('pages/donate/donate.html')
 
@@ -141,7 +136,6 @@ class ThanksPage(base.BaseHandler):
         """Handles GET requests."""
         self.values.update({
             'meta_description': feconf.THANKS_PAGE_DESCRIPTION,
-            'nav_mode': feconf.NAV_MODE_THANKS,
         })
         self.render_template('pages/thanks/thanks.html')
 

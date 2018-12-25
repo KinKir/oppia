@@ -33,7 +33,7 @@ ISSUE_URL_FORMAT_STRING = 'https://github.com/oppia/oppia/issues/%s'
 ISSUE_REGEX = re.compile(r'#(\d+)')
 GROUP_SEP = '\x1D'
 VERSION_RE_FORMAT_STRING = r'%s\s*=\s*(\d+|\.)+'
-FECONF_VAR_NAMES = ['CURRENT_EXPLORATION_STATES_SCHEMA_VERSION',
+FECONF_VAR_NAMES = ['CURRENT_STATES_SCHEMA_VERSION',
                     'CURRENT_COLLECTION_SCHEMA_VERSION']
 FIRST_OPPIA_COMMIT = '6a7138f5f603375e58d1dc3e1c4f1c80a126e249'
 
@@ -45,11 +45,10 @@ def _run_cmd(cmd_str):
     Raises subprocess.CalledProcessError upon failure.
 
     Args:
-        cmd_str (str): The command string to execute
+        cmd_str: str. The command string to execute
 
     Returns:
-        (str): The output of the command.
-
+        str. The output of the command.
     """
     return subprocess.check_output(cmd_str.split(' ')).strip()
 
@@ -79,7 +78,7 @@ def _get_base_commit_with_develop(reference):
     specified reference commit.
 
     Args:
-        reference (str): Tag, Branch, or commit hash of reference commit.
+        reference: str. Tag, Branch, or commit hash of reference commit.
 
     Returns:
         (str): The common commit hash.
@@ -91,15 +90,14 @@ def _gather_logs(start, stop='HEAD'):
     """Gathers the logs between the start and endpoint.
 
     Args:
-        start (str): Tag, Branch or SHA1 of start point
-        stop (str):  Tag, Branch or SHA1 of end point, defaults to HEAD
+        start: str. Tag, Branch or SHA1 of start point
+        stop: str.  Tag, Branch or SHA1 of end point, defaults to HEAD
 
     Returns:
-        list[Log]: List of Logs
-
+        list(Log): List of Logs.
     """
-    get_logs_cmd = GIT_CMD_GET_LOGS_FORMAT_STRING.format(GROUP_SEP, start,
-                                                         stop)
+    get_logs_cmd = GIT_CMD_GET_LOGS_FORMAT_STRING.format(
+        GROUP_SEP, start, stop)
     out = _run_cmd(get_logs_cmd).split('\x00')
     if len(out) == 1 and out[0] == '':
         return []
@@ -111,11 +109,10 @@ def _extract_issues(logs):
     """Extract references to issues out of a list of Logs
 
     Args:
-        logs (list[Log]): List of Logs to parse
+        logs: list(Log). List of Logs to parse
 
     Returns:
-        set[str]: Set of found issues as links to Github
-
+        set(str): Set of found issues as links to Github.
     """
     issues = ISSUE_REGEX.findall(' '.join([log.message for log in logs]))
     links = {ISSUE_URL_FORMAT_STRING % issue for issue in issues}
@@ -127,10 +124,10 @@ def _check_versions(current_release):
     changed.
 
     Args:
-        current_release (str): The current release tag to diff against.
+        current_release: str. The current release tag to diff against.
 
     Returns:
-        List of variable names that changed
+        List of variable names that changed.
     """
     feconf_changed_version = []
     git_show_cmd = (GIT_CMD_SHOW_FORMAT_STRING % current_release)
@@ -151,12 +148,11 @@ def _git_diff_names_only(left, right='HEAD'):
     """ Get names of changed files from git.
 
     Args:
-        left (str): Lefthand timepoint
-        right (str): rightand timepoint
+        left: str. Lefthand timepoint.
+        right: str. rightand timepoint.
 
     Returns:
-        (list): List of files that are different between the two points.
-
+        list(str): List of files that are different between the two points.
     """
     diff_cmd = (GIT_CMD_DIFF_NAMES_ONLY_FORMAT_STRING % (left, right))
     return _run_cmd(diff_cmd).splitlines()
@@ -166,8 +162,8 @@ def _check_setup_scripts(base_release_tag, changed_only=True):
     """Check if setup scripts have changed.
 
     Args:
-        base_release_tag (str): The current release tag to diff against.
-        changed_only (bool): If set to False will return all tested files
+        base_release_tag: str. The current release tag to diff against.
+        changed_only: bool. If set to False will return all tested files
             instead of just the changed ones.
 
     Returns:
@@ -194,8 +190,7 @@ def _check_storage_models(current_release):
         current_release: The current release version
 
     Returns:
-        (list): The changed files (if any)
-
+        list(str): The changed files (if any).
     """
     diff_list = _git_diff_names_only(current_release)
     return [item for item in diff_list if item.startswith('core/storage')]
@@ -211,7 +206,7 @@ def main():
     current_release = _get_current_version_tag()
     base_commit = _get_base_commit_with_develop(current_release)
     new_release_logs = _gather_logs(base_commit)
-    past_logs = _gather_logs(FIRST_OPPIA_COMMIT, base_commit)
+    past_logs = _gather_logs(FIRST_OPPIA_COMMIT, stop=base_commit)
     issue_links = _extract_issues(new_release_logs)
     feconf_version_changes = _check_versions(current_release)
     setup_changes = _check_setup_scripts(current_release)
@@ -251,7 +246,7 @@ def main():
         new_author_names = [name for name, _ in new_authors]
         existing_author_names = [name for name, _ in existing_authors]
 
-        # TODO: duplicate author handling due to email changes
+        # TODO: duplicate author handling due to email changes.
         out.write('\n### New Authors:\n')
         for name, email in new_authors:
             out.write('* %s <%s>\n' % (name, email))

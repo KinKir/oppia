@@ -33,10 +33,10 @@ oppia.directive('sharingLinks', [
         'sharing_links_directive.html'),
       controller: [
         '$scope', '$window', 'HtmlEscaperService',
-        'ExplorationEmbedButtonService', 'siteAnalyticsService',
+        'ExplorationEmbedButtonService', 'SiteAnalyticsService',
         function(
-            $scope, $window, HtmlEscaperService, ExplorationEmbedButtonService,
-            siteAnalyticsService) {
+            $scope, $window, HtmlEscaperService,
+            ExplorationEmbedButtonService, SiteAnalyticsService) {
           $scope.registerShareEvent = null;
 
           if ($scope.shareType === 'exploration') {
@@ -46,7 +46,7 @@ oppia.directive('sharingLinks', [
             $scope.activityId = $scope.explorationId;
 
             $scope.registerShareEvent = (
-              siteAnalyticsService.registerShareExplorationEvent);
+              SiteAnalyticsService.registerShareExplorationEvent);
 
             $scope.showEmbedExplorationModal = (
               ExplorationEmbedButtonService.showModal);
@@ -57,7 +57,7 @@ oppia.directive('sharingLinks', [
             $scope.activityId = $scope.collectionId;
 
             $scope.registerShareEvent = (
-              siteAnalyticsService.registerShareCollectionEvent);
+              SiteAnalyticsService.registerShareCollectionEvent);
           } else {
             throw Error(
               'SharingLinks directive can only be used either in the' +
@@ -70,15 +70,6 @@ oppia.directive('sharingLinks', [
           $scope.escapedTwitterText = (
             HtmlEscaperService.unescapedStrToEscapedStr(
               $scope.getTwitterText()));
-
-          $scope.gplusUrl = UrlInterpolationService.getStaticImageUrl(
-            '/general/gplus.png');
-
-          $scope.fbUrl = UrlInterpolationService.getStaticImageUrl(
-            '/general/fb.png');
-
-          $scope.twitterUrl = UrlInterpolationService.getStaticImageUrl(
-            '/general/twitter.png');
 
           $scope.classroomUrl = UrlInterpolationService.getStaticImageUrl(
             '/general/classroom.png');

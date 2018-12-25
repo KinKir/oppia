@@ -21,10 +21,8 @@ from core.domain import feedback_domain
 from core.domain import feedback_services
 from core.domain import rating_services
 from core.domain import rights_manager
-from core.domain import stats_jobs_continuous_test
 from core.domain import subscription_services
 from core.domain import user_jobs_continuous
-from core.domain import user_jobs_continuous_test
 from core.domain import user_services
 from core.platform import models
 from core.tests import test_utils
@@ -35,7 +33,29 @@ import feconf
 taskqueue_services = models.Registry.import_taskqueue_services()
 
 
-class HomePageTest(test_utils.GenericTestBase):
+class MockUserStatsAggregator(
+        user_jobs_continuous.UserStatsAggregator):
+    """A modified UserStatsAggregator that does not start a new
+     batch job when the previous one has finished.
+    """
+    @classmethod
+    def _get_batch_job_manager_class(cls):
+        return MockUserStatsMRJobManager
+
+    @classmethod
+    def _kickoff_batch_job_after_previous_one_ends(cls):
+        pass
+
+
+class MockUserStatsMRJobManager(
+        user_jobs_continuous.UserStatsMRJobManager):
+
+    @classmethod
+    def _get_continuous_computation_class(cls):
+        return MockUserStatsAggregator
+
+
+class HomePageTests(test_utils.GenericTestBase):
 
     def test_logged_out_homepage(self):
         """Test the logged-out version of the home page."""
@@ -68,7 +88,7 @@ class HomePageTest(test_utils.GenericTestBase):
         self.logout()
 
 
-class CreatorDashboardStatisticsTest(test_utils.GenericTestBase):
+class CreatorDashboardStatisticsTests(test_utils.GenericTestBase):
     OWNER_EMAIL_1 = 'owner1@example.com'
     OWNER_USERNAME_1 = 'owner1'
     OWNER_EMAIL_2 = 'owner2@example.com'
@@ -85,7 +105,7 @@ class CreatorDashboardStatisticsTest(test_utils.GenericTestBase):
     USER_IMPACT_SCORE_DEFAULT = 0.0
 
     def setUp(self):
-        super(CreatorDashboardStatisticsTest, self).setUp()
+        super(CreatorDashboardStatisticsTests, self).setUp()
         self.signup(self.OWNER_EMAIL_1, self.OWNER_USERNAME_1)
         self.signup(self.OWNER_EMAIL_2, self.OWNER_USERNAME_2)
 
@@ -101,6 +121,13 @@ class CreatorDashboardStatisticsTest(test_utils.GenericTestBase):
         event_services.StartExplorationEventHandler.record(
             exp_id, exp_version, state, self.USER_SESSION_ID, {},
             feconf.PLAY_TYPE_NORMAL)
+        event_services.StatsEventsHandler.record(
+            exp_id, exp_version, {
+                'num_starts': 1,
+                'num_actual_starts': 0,
+                'num_completions': 0,
+                'state_stats_mapping': {}
+            })
 
     def _rate_exploration(self, exp_id, ratings):
         """Create num_ratings ratings for exploration with exp_id,
@@ -116,20 +143,7 @@ class CreatorDashboardStatisticsTest(test_utils.GenericTestBase):
         self.process_and_flush_pending_tasks()
 
     def _run_user_stats_aggregator_job(self):
-        (user_jobs_continuous_test.ModifiedUserStatsAggregator.
-         start_computation())
-        self.assertEqual(
-            self.count_jobs_in_taskqueue(
-                taskqueue_services.QUEUE_NAME_CONTINUOUS_JOBS), 1)
-        self.process_and_flush_pending_tasks()
-        self.assertEqual(
-            self.count_jobs_in_taskqueue(
-                taskqueue_services.QUEUE_NAME_CONTINUOUS_JOBS), 0)
-        self.process_and_flush_pending_tasks()
-
-    def _run_stats_aggregator_jobs(self):
-        (stats_jobs_continuous_test.ModifiedStatisticsAggregator
-         .start_computation())
+        MockUserStatsAggregator.start_computation()
         self.assertEqual(
             self.count_jobs_in_taskqueue(
                 taskqueue_services.QUEUE_NAME_CONTINUOUS_JOBS), 1)
@@ -161,14 +175,13 @@ class CreatorDashboardStatisticsTest(test_utils.GenericTestBase):
         state = exploration.init_state_name
 
         self._record_start(exp_id, exp_version, state)
-        self._run_stats_aggregator_jobs()
 
         self._run_user_stats_aggregator_job()
         user_model = user_models.UserStatsModel.get(self.owner_id_1)
-        self.assertEquals(user_model.total_plays, 1)
-        self.assertEquals(
+        self.assertEqual(user_model.total_plays, 1)
+        self.assertEqual(
             user_model.impact_score, self.USER_IMPACT_SCORE_DEFAULT)
-        self.assertEquals(user_model.num_ratings, 0)
+        self.assertEqual(user_model.num_ratings, 0)
         self.assertIsNone(user_model.average_ratings)
         self.logout()
 
@@ -185,11 +198,11 @@ class CreatorDashboardStatisticsTest(test_utils.GenericTestBase):
 
         self._run_user_stats_aggregator_job()
         user_model = user_models.UserStatsModel.get(self.owner_id_1)
-        self.assertEquals(user_model.total_plays, 0)
-        self.assertEquals(
+        self.assertEqual(user_model.total_plays, 0)
+        self.assertEqual(
             user_model.impact_score, self.USER_IMPACT_SCORE_DEFAULT)
-        self.assertEquals(user_model.num_ratings, 1)
-        self.assertEquals(user_model.average_ratings, 4)
+        self.assertEqual(user_model.num_ratings, 1)
+        self.assertEqual(user_model.average_ratings, 4)
         self.logout()
 
     def test_one_play_and_rating_for_single_exploration(self):
@@ -206,17 +219,16 @@ class CreatorDashboardStatisticsTest(test_utils.GenericTestBase):
         state = exploration.init_state_name
 
         self._record_start(exp_id, exp_version, state)
-        self._run_stats_aggregator_jobs()
 
         self._rate_exploration(exp_id, [3])
 
         self._run_user_stats_aggregator_job()
         user_model = user_models.UserStatsModel.get(self.owner_id_1)
-        self.assertEquals(user_model.total_plays, 1)
-        self.assertEquals(
+        self.assertEqual(user_model.total_plays, 1)
+        self.assertEqual(
             user_model.impact_score, self.USER_IMPACT_SCORE_DEFAULT)
-        self.assertEquals(user_model.num_ratings, 1)
-        self.assertEquals(user_model.average_ratings, 3)
+        self.assertEqual(user_model.num_ratings, 1)
+        self.assertEqual(user_model.average_ratings, 3)
         self.logout()
 
     def test_multiple_plays_and_ratings_for_single_exploration(self):
@@ -235,17 +247,16 @@ class CreatorDashboardStatisticsTest(test_utils.GenericTestBase):
         self._record_start(exp_id, exp_version, state)
         self._record_start(exp_id, exp_version, state)
         self._record_start(exp_id, exp_version, state)
-        self._run_stats_aggregator_jobs()
 
         self._rate_exploration(exp_id, [3, 4, 5])
 
         self._run_user_stats_aggregator_job()
         user_model = user_models.UserStatsModel.get(self.owner_id_1)
-        self.assertEquals(user_model.total_plays, 4)
-        self.assertEquals(
+        self.assertEqual(user_model.total_plays, 4)
+        self.assertEqual(
             user_model.impact_score, self.USER_IMPACT_SCORE_DEFAULT)
-        self.assertEquals(user_model.num_ratings, 3)
-        self.assertEquals(user_model.average_ratings, 4)
+        self.assertEqual(user_model.num_ratings, 3)
+        self.assertEqual(user_model.average_ratings, 4)
         self.logout()
 
     def test_one_play_and_rating_for_multiple_explorations(self):
@@ -264,17 +275,16 @@ class CreatorDashboardStatisticsTest(test_utils.GenericTestBase):
         state_1 = exploration_1.init_state_name
 
         self._record_start(exp_id_1, exp_version, state_1)
-        self._run_stats_aggregator_jobs()
 
         self._rate_exploration(exp_id_1, [4])
 
         self._run_user_stats_aggregator_job()
         user_model = user_models.UserStatsModel.get(self.owner_id_1)
-        self.assertEquals(user_model.total_plays, 1)
-        self.assertEquals(
+        self.assertEqual(user_model.total_plays, 1)
+        self.assertEqual(
             user_model.impact_score, self.USER_IMPACT_SCORE_DEFAULT)
-        self.assertEquals(user_model.num_ratings, 1)
-        self.assertEquals(user_model.average_ratings, 4)
+        self.assertEqual(user_model.num_ratings, 1)
+        self.assertEqual(user_model.average_ratings, 4)
         self.logout()
 
     def test_multiple_plays_and_ratings_for_multiple_explorations(self):
@@ -301,15 +311,14 @@ class CreatorDashboardStatisticsTest(test_utils.GenericTestBase):
         self._rate_exploration(exp_id_1, [4])
         self._rate_exploration(exp_id_2, [3, 3])
 
-        self._run_stats_aggregator_jobs()
         self._run_user_stats_aggregator_job()
 
         user_model = user_models.UserStatsModel.get(self.owner_id_1)
-        self.assertEquals(user_model.total_plays, 3)
-        self.assertEquals(
+        self.assertEqual(user_model.total_plays, 3)
+        self.assertEqual(
             user_model.impact_score, self.USER_IMPACT_SCORE_DEFAULT)
-        self.assertEquals(user_model.num_ratings, 3)
-        self.assertEquals(user_model.average_ratings, 10/3.0)
+        self.assertEqual(user_model.num_ratings, 3)
+        self.assertEqual(user_model.average_ratings, 10 / 3.0)
         self.logout()
 
     def test_stats_for_single_exploration_with_multiple_owners(self):
@@ -330,7 +339,6 @@ class CreatorDashboardStatisticsTest(test_utils.GenericTestBase):
 
         self._record_start(exp_id, exp_version, state)
         self._record_start(exp_id, exp_version, state)
-        self._run_stats_aggregator_jobs()
 
         self._rate_exploration(exp_id, [3, 4, 5])
         self.logout()
@@ -345,19 +353,19 @@ class CreatorDashboardStatisticsTest(test_utils.GenericTestBase):
 
         user_model_1 = user_models.UserStatsModel.get(
             self.owner_id_1)
-        self.assertEquals(user_model_1.total_plays, 2)
-        self.assertEquals(
+        self.assertEqual(user_model_1.total_plays, 2)
+        self.assertEqual(
             user_model_1.impact_score, self.USER_IMPACT_SCORE_DEFAULT)
-        self.assertEquals(user_model_1.num_ratings, 3)
-        self.assertEquals(user_model_1.average_ratings, 4)
+        self.assertEqual(user_model_1.num_ratings, 3)
+        self.assertEqual(user_model_1.average_ratings, 4)
 
         user_model_2 = user_models.UserStatsModel.get(
             self.owner_id_2)
-        self.assertEquals(user_model_2.total_plays, 2)
-        self.assertEquals(
+        self.assertEqual(user_model_2.total_plays, 2)
+        self.assertEqual(
             user_model_2.impact_score, self.USER_IMPACT_SCORE_DEFAULT)
-        self.assertEquals(user_model_2.num_ratings, 3)
-        self.assertEquals(user_model_2.average_ratings, 4)
+        self.assertEqual(user_model_2.num_ratings, 3)
+        self.assertEqual(user_model_2.average_ratings, 4)
         self.logout()
 
     def test_stats_for_multiple_explorations_with_multiple_owners(self):
@@ -389,7 +397,6 @@ class CreatorDashboardStatisticsTest(test_utils.GenericTestBase):
         self._record_start(exp_id_2, exp_version, state_2)
         self._record_start(exp_id_2, exp_version, state_2)
         self._record_start(exp_id_2, exp_version, state_2)
-        self._run_stats_aggregator_jobs()
 
         self._rate_exploration(exp_id_1, [5, 3])
         self._rate_exploration(exp_id_2, [5, 5])
@@ -399,17 +406,17 @@ class CreatorDashboardStatisticsTest(test_utils.GenericTestBase):
         expected_results = {
             'total_plays': 5,
             'num_ratings': 4,
-            'average_ratings': 18/4.0
+            'average_ratings': 18 / 4.0
         }
 
         user_model_2 = user_models.UserStatsModel.get(self.owner_id_2)
-        self.assertEquals(
+        self.assertEqual(
             user_model_2.total_plays, expected_results['total_plays'])
-        self.assertEquals(
+        self.assertEqual(
             user_model_2.impact_score, self.USER_IMPACT_SCORE_DEFAULT)
-        self.assertEquals(
+        self.assertEqual(
             user_model_2.num_ratings, expected_results['num_ratings'])
-        self.assertEquals(
+        self.assertEqual(
             user_model_2.average_ratings, expected_results['average_ratings'])
         self.logout()
 
@@ -418,18 +425,18 @@ class CreatorDashboardStatisticsTest(test_utils.GenericTestBase):
         self.assertEqual(len(response['explorations_list']), 2)
 
         user_model_1 = user_models.UserStatsModel.get(self.owner_id_1)
-        self.assertEquals(
+        self.assertEqual(
             user_model_1.total_plays, expected_results['total_plays'])
-        self.assertEquals(
+        self.assertEqual(
             user_model_1.impact_score, self.USER_IMPACT_SCORE_DEFAULT)
-        self.assertEquals(
+        self.assertEqual(
             user_model_1.num_ratings, expected_results['num_ratings'])
-        self.assertEquals(
+        self.assertEqual(
             user_model_1.average_ratings, expected_results['average_ratings'])
         self.logout()
 
 
-class CreatorDashboardHandlerTest(test_utils.GenericTestBase):
+class CreatorDashboardHandlerTests(test_utils.GenericTestBase):
 
     COLLABORATOR_EMAIL = 'collaborator@example.com'
     COLLABORATOR_USERNAME = 'collaborator'
@@ -449,7 +456,7 @@ class CreatorDashboardHandlerTest(test_utils.GenericTestBase):
     EXP_TITLE_3 = 'Exploration title 3'
 
     def setUp(self):
-        super(CreatorDashboardHandlerTest, self).setUp()
+        super(CreatorDashboardHandlerTests, self).setUp()
         self.signup(self.OWNER_EMAIL, self.OWNER_USERNAME)
         self.signup(self.OWNER_EMAIL_1, self.OWNER_USERNAME_1)
         self.signup(self.OWNER_EMAIL_2, self.OWNER_USERNAME_2)
@@ -601,7 +608,8 @@ class CreatorDashboardHandlerTest(test_utils.GenericTestBase):
             response['explorations_list'][0]['num_total_threads'], 0)
 
         def mock_get_thread_analytics_multi(unused_exploration_ids):
-            return [feedback_domain.FeedbackAnalytics(self.EXP_ID, 2, 3)]
+            return [feedback_domain.FeedbackAnalytics(
+                feconf.ENTITY_TYPE_EXPLORATION, self.EXP_ID, 2, 3)]
 
         with self.swap(
             feedback_services, 'get_thread_analytics_multi',
@@ -638,36 +646,38 @@ class CreatorDashboardHandlerTest(test_utils.GenericTestBase):
         self.assertEqual(len(response['subscribers_list']), 0)
 
 
-class NotificationsDashboardHandlerTest(test_utils.GenericTestBase):
+class NotificationsDashboardHandlerTests(test_utils.GenericTestBase):
 
     DASHBOARD_DATA_URL = '/notificationsdashboardhandler/data'
 
     def setUp(self):
-        super(NotificationsDashboardHandlerTest, self).setUp()
+        super(NotificationsDashboardHandlerTests, self).setUp()
         self.signup(self.VIEWER_EMAIL, self.VIEWER_USERNAME)
         self.viewer_id = self.get_user_id_from_email(self.VIEWER_EMAIL)
 
     def _get_recent_notifications_mock_by_viewer(self, unused_user_id):
         """Returns a single feedback thread by VIEWER_ID."""
-        return (100000, [{
-            'activity_id': 'exp_id',
-            'activity_title': 'exp_title',
-            'author_id': self.viewer_id,
-            'last_updated_ms': 100000,
-            'subject': 'Feedback Message Subject',
-            'type': feconf.UPDATE_TYPE_FEEDBACK_MESSAGE,
-        }])
+        return (
+            100000, [{
+                'activity_id': 'exp_id',
+                'activity_title': 'exp_title',
+                'author_id': self.viewer_id,
+                'last_updated_ms': 100000,
+                'subject': 'Feedback Message Subject',
+                'type': feconf.UPDATE_TYPE_FEEDBACK_MESSAGE,
+            }])
 
     def _get_recent_notifications_mock_by_anonymous_user(self, unused_user_id):
         """Returns a single feedback thread by an anonymous user."""
-        return (200000, [{
-            'activity_id': 'exp_id',
-            'activity_title': 'exp_title',
-            'author_id': None,
-            'last_updated_ms': 100000,
-            'subject': 'Feedback Message Subject',
-            'type': feconf.UPDATE_TYPE_FEEDBACK_MESSAGE,
-        }])
+        return (
+            200000, [{
+                'activity_id': 'exp_id',
+                'activity_title': 'exp_title',
+                'author_id': None,
+                'last_updated_ms': 100000,
+                'subject': 'Feedback Message Subject',
+                'type': feconf.UPDATE_TYPE_FEEDBACK_MESSAGE,
+            }])
 
     def test_author_ids_are_handled_correctly(self):
         """Test that author ids are converted into author usernames
@@ -699,10 +709,10 @@ class NotificationsDashboardHandlerTest(test_utils.GenericTestBase):
             self.assertNotIn('author_id', response['recent_notifications'][0])
 
 
-class CreationButtonsTest(test_utils.GenericTestBase):
+class CreationButtonsTests(test_utils.GenericTestBase):
 
     def setUp(self):
-        super(CreationButtonsTest, self).setUp()
+        super(CreationButtonsTests, self).setUp()
         self.signup(self.EDITOR_EMAIL, self.EDITOR_USERNAME)
 
     def test_new_exploration_ids(self):
@@ -713,7 +723,7 @@ class CreationButtonsTest(test_utils.GenericTestBase):
         self.assertEqual(response.status_int, 200)
         csrf_token = self.get_csrf_token_from_response(response)
         exp_a_id = self.post_json(
-            feconf.NEW_EXPLORATION_URL, {}, csrf_token
+            feconf.NEW_EXPLORATION_URL, {}, csrf_token=csrf_token
         )[creator_dashboard.EXPLORATION_ID_KEY]
         self.assertEqual(len(exp_a_id), 12)
 

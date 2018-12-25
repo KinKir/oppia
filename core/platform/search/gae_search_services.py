@@ -31,7 +31,9 @@ class SearchFailureError(Exception):
     """This error is raised when a search operation fails.
        The original_exception will point to what went wrong inside the gae sdk.
        Other platform implementations should have a similar way of revealing
-       platform specific errors."""
+       platform specific errors.
+    """
+
     def __init__(self, original_exception=None):
         super(SearchFailureError, self).__init__(
             '%s: %s' % (type(original_exception), original_exception.message))
@@ -137,7 +139,8 @@ def _make_fields(key, value):
 
 def _validate_list(key, value):
     """Validates a list to be included as document fields. The key is just
-    passed in to make better error messages."""
+    passed in to make better error messages.
+    """
 
     for ind, element in enumerate(value):
         if not isinstance(element, (
@@ -200,7 +203,7 @@ def clear_index(index_name):
     there are too many entries in the index.
 
     Args:
-      - index: the name of the index to delete the document from, a string.
+      - index_name: the name of the index to delete the document from, a string.
     """
     index = gae_search.Index(index_name)
 
@@ -226,12 +229,12 @@ def search(query_string, index, cursor=None,
       - cursor: a cursor string, as returned by this function. Pass this in to
           get the next 'page' of results. Leave as None to start at the
           beginning.
+      - limit: the maximum number of documents to return.
       - sort: a string indicating how to sort results. This should be a string
           of space separated values. Each value should start with a '+' or a
           '-' character indicating whether to sort in ascending or descending
           order respectively. This character should be followed by a field name
           to sort on.
-      - limit: the maximum number of documents to return.
       - ids_only: whether to only return document ids.
       - retries: the number of times to retry searching the index.
 
@@ -324,11 +327,11 @@ def get_document_from_index(doc_id, index):
     """Returns a document with a give doc_id(s) from the index.
 
     args:
-      - doc_id: a doc_id as a string
+      - doc_id: a doc_id as a string.
       - index: the name of an index, a string.
 
     returns
-      - the requested document as a dict
+      - the requested document as a dict.
     """
     index = gae_search.Index(index)
     return _search_document_to_dict(index.get(doc_id))

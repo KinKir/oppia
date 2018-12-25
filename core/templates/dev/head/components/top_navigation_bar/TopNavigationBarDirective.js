@@ -27,80 +27,165 @@ oppia.directive('topNavigationBar', [
         '/components/top_navigation_bar/' +
         'top_navigation_bar_directive.html'),
       controller: [
-        '$scope', '$http', '$window', '$timeout',
-        'SidebarStatusService', 'LABEL_FOR_CLEARING_FOCUS',
-        'siteAnalyticsService', 'WindowDimensionsService', 'DebouncerService',
+        '$scope', '$http', '$window', '$timeout', '$translate',
+        'SidebarStatusService', 'LABEL_FOR_CLEARING_FOCUS', 'UserService',
+        'SiteAnalyticsService', 'WindowDimensionsService', 'DebouncerService',
+        'DeviceInfoService',
         function(
-            $scope, $http, $window, $timeout,
-            SidebarStatusService, LABEL_FOR_CLEARING_FOCUS,
-            siteAnalyticsService, WindowDimensionsService, DebouncerService) {
+            $scope, $http, $window, $timeout, $translate,
+            SidebarStatusService, LABEL_FOR_CLEARING_FOCUS, UserService,
+            SiteAnalyticsService, WindowDimensionsService, DebouncerService,
+            DeviceInfoService) {
+          $scope.isModerator = null;
+          $scope.isAdmin = null;
+          $scope.isSuperAdmin = null;
+          $scope.userIsLoggedIn = null;
+          $scope.username = '';
+          UserService.getUserInfoAsync().then(function(userInfo) {
+            if (userInfo.getPreferredSiteLanguageCode()) {
+              $translate.use(userInfo.getPreferredSiteLanguageCode());
+            }
+            $scope.isModerator = userInfo.isModerator();
+            $scope.isAdmin = userInfo.isAdmin();
+            $scope.isSuperAdmin = userInfo.isSuperAdmin();
+            $scope.userIsLoggedIn = userInfo.isLoggedIn();
+            $scope.username = userInfo.getUsername();
+            if ($scope.username) {
+              $scope.profilePageUrl = UrlInterpolationService.interpolateUrl(
+                '/profile/<username>', {
+                  username: $scope.username
+                });
+            }
+
+            if ($scope.userIsLoggedIn) {
+              // Show the number of unseen notifications in the navbar and page
+              // title, unless the user is already on the dashboard page.
+              $http.get('/notificationshandler').then(function(response) {
+                var data = response.data;
+                if ($window.location.pathname !== '/') {
+                  $scope.numUnseenNotifications = data.num_unseen_notifications;
+                  if ($scope.numUnseenNotifications > 0) {
+                    $window.document.title = (
+                      '(' + $scope.numUnseenNotifications + ') ' +
+                      $window.document.title);
+                  }
+                }
+              });
+            }
+          });
+          UserService.getProfileImageDataUrlAsync().then(function(dataUrl) {
+            $scope.profilePictureDataUrl = dataUrl;
+          });
           var NAV_MODE_SIGNUP = 'signup';
           var NAV_MODES_WITH_CUSTOM_LOCAL_NAV = [
-            'create', 'explore', 'collection'];
-          $scope.NAV_MODE = GLOBALS.NAV_MODE;
+            'create', 'explore', 'collection', 'topics_and_skills_dashboard',
+            'topic_editor', 'story_editor'];
+          $scope.currentUrl = window.location.pathname.split("/")[1];
           $scope.LABEL_FOR_CLEARING_FOCUS = LABEL_FOR_CLEARING_FOCUS;
+          $scope.newStructuresEnabled = constants.ENABLE_NEW_STRUCTURE_EDITORS;
           $scope.getStaticImageUrl = UrlInterpolationService.getStaticImageUrl;
-
-          $scope.username = GLOBALS.username;
-          $scope.profilePictureDataUrl = GLOBALS.profilePictureDataUrl;
-          $scope.isAdmin = GLOBALS.isAdmin;
-          $scope.isModerator = GLOBALS.isModerator;
-          $scope.isSuperAdmin = GLOBALS.isSuperAdmin;
+          $scope.activeMenuName = '';
           $scope.logoutUrl = GLOBALS.logoutUrl;
-          if ($scope.username) {
-            $scope.profilePageUrl = UrlInterpolationService.interpolateUrl(
-              '/profile/<username>', {
-                username: $scope.username
-              });
-          }
-          $scope.userMenuIsShown = ($scope.NAV_MODE !== NAV_MODE_SIGNUP);
+          $scope.ACTION_OPEN = 'open';
+          $scope.ACTION_CLOSE = 'close';
+          $scope.KEYBOARD_EVENT_TO_KEY_CODES = {
+            enter: {
+              shiftKeyIsPressed: false,
+              keyCode: 13
+            },
+            tab: {
+              shiftKeyIsPressed: false,
+              keyCode: 9
+            },
+            shiftTab: {
+              shiftKeyIsPressed: true,
+              keyCode: 9
+            }
+          };
+          $scope.userMenuIsShown = ($scope.currentUrl !== NAV_MODE_SIGNUP);
           $scope.standardNavIsShown = (
-            NAV_MODES_WITH_CUSTOM_LOCAL_NAV.indexOf($scope.NAV_MODE) === -1);
+            NAV_MODES_WITH_CUSTOM_LOCAL_NAV.indexOf($scope.currentUrl) === -1);
 
           $scope.onLoginButtonClicked = function() {
-            siteAnalyticsService.registerStartLoginEvent('loginButton');
+            SiteAnalyticsService.registerStartLoginEvent('loginButton');
             $timeout(function() {
               $window.location = GLOBALS.loginUrl;
             }, 150);
           };
+
+          $scope.googleSignInIconUrl = (
+            UrlInterpolationService.getStaticImageUrl(
+              '/google_signin_buttons/google_signin.svg'));
           $scope.onLogoutButtonClicked = function() {
             $window.localStorage.removeItem('last_uploaded_audio_lang');
           };
 
-          $scope.profileDropdownIsActive = false;
-          $scope.onMouseoverProfilePictureOrDropdown = function(evt) {
-            angular.element(evt.currentTarget).parent().addClass('open');
-            $scope.profileDropdownIsActive = true;
+          /**
+           * Opens the submenu.
+           * @param {object} evt
+           * @param {String} menuName - name of menu, on which
+           * open/close action to be performed (aboutMenu,profileMenu).
+           */
+          $scope.openSubmenu = function(evt, menuName) {
+            // Focus on the current target before opening its submenu.
+            angular.element(evt.currentTarget).focus();
+            $scope.activeMenuName = menuName;
           };
-          $scope.onMouseoutProfilePictureOrDropdown = function(evt) {
-            angular.element(evt.currentTarget).parent().removeClass('open');
-            $scope.profileDropdownIsActive = false;
+          $scope.blurNavigationLinks = function(evt) {
+            // This is required because if about submenu is in open state
+            // and when you hover on library, both will be highlighted,
+            // To avoid that, blur all the a's in nav, so that only one
+            // will be highlighted.
+            $('nav a').blur();
           };
-          $scope.onMouseoutDropdownMenuAbout = function(evt) {
-            angular.element(evt.currentTarget)[0].blur();
+          $scope.closeSubmenu = function(evt) {
+            $scope.activeMenuName = '';
+            angular.element(evt.currentTarget).closest('li')
+              .find('a').blur();
           };
-          $scope.onMouseoverDropdownMenu = function(evt) {
-            angular.element(evt.currentTarget).parent().addClass('open');
+          $scope.closeSubmenuIfNotMobile = function(evt) {
+            if (DeviceInfoService.isMobileDevice()) {
+              return;
+            }
+            $scope.closeSubmenu(evt);
           };
-          $scope.onMouseoutDropdownMenu = function(evt) {
-            angular.element(evt.currentTarget).parent().removeClass('open');
-          };
-
-          if (GLOBALS.userIsLoggedIn) {
-            // Show the number of unseen notifications in the navbar and page
-            // title, unless the user is already on the dashboard page.
-            $http.get('/notificationshandler').then(function(response) {
-              var data = response.data;
-              if ($window.location.pathname !== '/') {
-                $scope.numUnseenNotifications = data.num_unseen_notifications;
-                if ($scope.numUnseenNotifications > 0) {
-                  $window.document.title = (
-                    '(' + $scope.numUnseenNotifications + ') ' +
-                    $window.document.title);
+          /**
+           * Handles keydown events on menus.
+           * @param {object} evt
+           * @param {String} menuName - name of menu to perform action
+           * on(aboutMenu/profileMenu)
+           * @param {object} eventsTobeHandled - Map keyboard events('Enter') to
+           * corresponding actions to be performed(open/close).
+           *
+           * @example
+           *  onMenuKeypress($event, 'aboutMenu', {enter: 'open'})
+           */
+          $scope.onMenuKeypress = function(evt, menuName, eventsTobeHandled) {
+            var targetEvents = Object.keys(eventsTobeHandled);
+            for (var i = 0; i < targetEvents.length; i++) {
+              var keyCodeSpec =
+                $scope.KEYBOARD_EVENT_TO_KEY_CODES[targetEvents[i]];
+              if (keyCodeSpec.keyCode === evt.keyCode &&
+                evt.shiftKey === keyCodeSpec.shiftKeyIsPressed) {
+                if (eventsTobeHandled[targetEvents[i]] === $scope.ACTION_OPEN) {
+                  $scope.openSubmenu(evt, menuName);
+                } else if (eventsTobeHandled[targetEvents[i]] ===
+                  $scope.ACTION_CLOSE) {
+                  $scope.closeSubmenu(evt);
+                } else {
+                  throw Error('Invalid action type.');
                 }
               }
-            });
-          }
+            }
+          };
+          // Close the submenu if focus or click occurs anywhere outside of
+          // the menu or outside of its parent (which opens submenu on hover).
+          angular.element(document).on('click', function(evt) {
+            if (!angular.element(evt.target).closest('li').length) {
+              $scope.activeMenuName = '';
+              $scope.$apply();
+            }
+          });
 
           $scope.windowIsNarrow = WindowDimensionsService.isWindowNarrow();
           var currentWindowWidth = WindowDimensionsService.getWidth();

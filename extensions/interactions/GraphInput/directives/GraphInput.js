@@ -31,20 +31,17 @@ oppia.directive('oppiaInteractiveGraphInput', [
     return {
       restrict: 'E',
       scope: {
-        onSubmit: '&',
         getLastAnswer: '&lastAnswer',
-        // This should be called whenever the answer changes.
-        setAnswerValidity: '&'
       },
       templateUrl: UrlInterpolationService.getExtensionResourceUrl(
         '/interactions/GraphInput/directives/' +
         'graph_input_interaction_directive.html'),
       controller: [
         '$scope', '$element', '$attrs', 'WindowDimensionsService',
-        'ExplorationPlayerService', 'EVENT_PROGRESS_NAV_SUBMITTED',
+        'CurrentInteractionService',
         function(
             $scope, $element, $attrs, WindowDimensionsService,
-            ExplorationPlayerService, EVENT_PROGRESS_NAV_SUBMITTED) {
+            CurrentInteractionService) {
           $scope.errorMessage = '';
           $scope.graph = {
             vertices: [],
@@ -55,12 +52,9 @@ oppia.directive('oppiaInteractiveGraphInput', [
           };
           $scope.submitGraph = function() {
             // Here, angular.copy is needed to strip $$hashkey from the graph.
-            $scope.onSubmit({
-              answer: angular.copy($scope.graph),
-              rulesService: graphInputRulesService
-            });
+            CurrentInteractionService.onSubmit(
+              angular.copy($scope.graph), graphInputRulesService);
           };
-          $scope.$on(EVENT_PROGRESS_NAV_SUBMITTED, $scope.submitGraph);
           $scope.interactionIsActive = ($scope.getLastAnswer() === null);
           $scope.$on(EVENT_NEW_CARD_AVAILABLE, function() {
             $scope.interactionIsActive = false;
@@ -114,13 +108,12 @@ oppia.directive('oppiaInteractiveGraphInput', [
             return Boolean(graph);
           };
 
-          $scope.$watch(function() {
-            return $scope.graph;
-          }, function() {
-            $scope.setAnswerValidity({
-              answerValidity: checkValidGraph($scope.graph)
-            });
-          });
+          var validityCheckFn = function() {
+            return checkValidGraph($scope.graph);
+          };
+
+          CurrentInteractionService.registerCurrentInteraction(
+            $scope.submitGraph, validityCheckFn);
 
           init();
         }
@@ -190,7 +183,6 @@ oppia.directive('oppiaResponseGraphInput', [
         'graph_input_response_directive.html'),
       controller: ['$scope', '$attrs', function($scope, $attrs) {
         $scope.graph = HtmlEscaperService.escapedJsonToObj($attrs.answer);
-
         $scope.VERTEX_RADIUS = graphDetailService.VERTEX_RADIUS;
         $scope.EDGE_WIDTH = graphDetailService.EDGE_WIDTH;
         $scope.GRAPH_INPUT_LEFT_MARGIN = GRAPH_INPUT_LEFT_MARGIN;
@@ -252,12 +244,12 @@ oppia.directive('graphViz', [
         '/interactions/GraphInput/directives/' +
         'graph_viz_directive.html'),
       controller: [
-        '$scope', '$element', '$attrs', '$document', 'FocusManagerService',
-        'graphDetailService', 'GRAPH_INPUT_LEFT_MARGIN',
+        '$scope', '$element', '$attrs', '$document', '$timeout',
+        'FocusManagerService', 'graphDetailService', 'GRAPH_INPUT_LEFT_MARGIN',
         'EVENT_NEW_CARD_AVAILABLE', 'DeviceInfoService',
         function(
-            $scope, $element, $attrs, $document, FocusManagerService,
-            graphDetailService, GRAPH_INPUT_LEFT_MARGIN,
+            $scope, $element, $attrs, $document, $timeout,
+            FocusManagerService, graphDetailService, GRAPH_INPUT_LEFT_MARGIN,
             EVENT_NEW_CARD_AVAILABLE, DeviceInfoService) {
           var _MODES = {
             MOVE: 0,
@@ -307,12 +299,21 @@ oppia.directive('graphViz', [
 
           var vizContainer = $($element).find('.oppia-graph-viz-svg');
           $scope.vizWidth = vizContainer.width();
+
           $scope.mousemoveGraphSVG = function(event) {
             if (!$scope.isInteractionActive()) {
               return;
             }
-            $scope.state.mouseX = event.pageX - vizContainer.offset().left;
-            $scope.state.mouseY = event.pageY - vizContainer.offset().top;
+            // Note: Transform client (X, Y) to SVG (X, Y). This has to be
+            // done so that changes due to viewBox attribute are
+            // propagated nicely.
+            var pt = vizContainer[0].createSVGPoint();
+            pt.x = event.clientX;
+            pt.y = event.clientY;
+            var svgp = pt.matrixTransform(
+              vizContainer[0].getScreenCTM().inverse());
+            $scope.state.mouseX = svgp.x;
+            $scope.state.mouseY = svgp.y;
             // We use vertexDragStartX/Y and mouseDragStartX/Y to make
             // mouse-dragging by label more natural, by moving the vertex
             // according to the difference from the original position.
@@ -320,12 +321,12 @@ oppia.directive('graphViz', [
             // awkwardly jump to the mouse.
             if ($scope.state.currentlyDraggedVertex !== null &&
                 ($scope.state.mouseX > GRAPH_INPUT_LEFT_MARGIN)) {
-              $scope.graph.vertices[$scope.state.currentlyDraggedVertex].x =
+              $scope.graph.vertices[$scope.state.currentlyDraggedVertex].x = (
                 $scope.state.vertexDragStartX + (
-                  $scope.state.mouseX - $scope.state.mouseDragStartX);
-              $scope.graph.vertices[$scope.state.currentlyDraggedVertex].y =
+                  $scope.state.mouseX - $scope.state.mouseDragStartX));
+              $scope.graph.vertices[$scope.state.currentlyDraggedVertex].y = (
                 $scope.state.vertexDragStartY + (
-                  $scope.state.mouseY - $scope.state.mouseDragStartY);
+                  $scope.state.mouseY - $scope.state.mouseDragStartY));
             }
           };
 
@@ -397,6 +398,17 @@ oppia.directive('graphViz', [
                 mode: _MODES.DELETE
               });
             }
+          };
+
+          var initViewboxSize = function() {
+            var svgContainer = $($element).find('.oppia-graph-viz-svg')[0];
+            var boundingBox = svgContainer.getBBox();
+            var viewBoxHeight = Math.max(
+              boundingBox.height + boundingBox.y,
+              svgContainer.getAttribute('height'));
+            $scope.svgViewBox = (
+              0 + ' ' + 0 + ' ' + (boundingBox.width + boundingBox.x) +
+                ' ' + (viewBoxHeight));
           };
 
           $scope.graphOptions = [{
@@ -535,7 +547,7 @@ oppia.directive('graphViz', [
             }
             $scope.state.hoveredVertex = (
               index === $scope.state.hoveredVertex) ?
-                null : $scope.state.hoveredVertex;
+              null : $scope.state.hoveredVertex;
           };
 
           $scope.onClickVertexLabel = function(index) {
@@ -593,13 +605,13 @@ oppia.directive('graphViz', [
 
           var tryAddEdge = function(startIndex, endIndex) {
             if (
-                startIndex === null ||
-                endIndex === null ||
-                startIndex === endIndex ||
-                startIndex < 0 ||
-                endIndex < 0 ||
-                startIndex >= $scope.graph.vertices.length ||
-                endIndex >= $scope.graph.vertices.length) {
+              startIndex === null ||
+              endIndex === null ||
+              startIndex === endIndex ||
+              startIndex < 0 ||
+              endIndex < 0 ||
+              startIndex >= $scope.graph.vertices.length ||
+              endIndex >= $scope.graph.vertices.length) {
               return;
             }
             for (var i = 0; i < $scope.graph.edges.length; i++) {
@@ -770,6 +782,10 @@ oppia.directive('graphViz', [
           $scope.getEdgeCentre = function(index) {
             return graphDetailService.getEdgeCentre($scope.graph, index);
           };
+
+          // Initial value of SVG view box.
+          $scope.svgViewBox = initViewboxSize();
+
           if ($scope.isInteractionActive()) {
             $scope.init();
           }
@@ -858,7 +874,8 @@ oppia.factory('graphUtilsService', [function() {
         }
         if (isVisited[nextVertex] === this.DFS_STATUS.UNVISITED &&
             this.findCycle(
-            nextVertex, currentVertex, adjacencyLists, isVisited, isDirected)) {
+              nextVertex, currentVertex, adjacencyLists, isVisited,
+              isDirected)) {
           return true;
         }
       }
@@ -1004,11 +1021,11 @@ oppia.factory('graphInputRulesService', [
       var adjacencyLists = graphUtilsService.constructAdjacencyLists(
         graph, graphUtilsService.GRAPH_ADJACENCY_MODE.DIRECTED);
       for (var startVertex = 0;
-           startVertex < graph.vertices.length;
-           startVertex++) {
+        startVertex < graph.vertices.length;
+        startVertex++) {
         if (isVisited[startVertex] === graphUtilsService.DFS_STATUS.UNVISITED) {
           if (graphUtilsService.findCycle(
-              startVertex, -1, adjacencyLists, isVisited, graph.isDirected)) {
+            startVertex, -1, adjacencyLists, isVisited, graph.isDirected)) {
             return false;
           }
         }
@@ -1088,7 +1105,7 @@ oppia.factory('graphInputRulesService', [
           });
         if (doLabelsMatch &&
             graphUtilsService.areAdjacencyMatricesEqualWithPermutation(
-            adj1, adj2, permutation)) {
+              adj1, adj2, permutation)) {
           return true;
         }
         permutation = graphUtilsService.nextPermutation(permutation);

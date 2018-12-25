@@ -15,21 +15,20 @@
 // This directive can only be used in the context of an exploration.
 
 oppia.directive('filepathEditor', [
-  '$compile', '$http', '$sce', 'AlertsService', 'ExplorationContextService',
+  '$http', '$sce', 'AlertsService', 'ContextService',
+  'UrlInterpolationService', 'AssetsBackendApiService',
   'OBJECT_EDITOR_URL_PREFIX',
   function(
-      $compile, $http, $sce, AlertsService, ExplorationContextService,
+      $http, $sce, AlertsService, ContextService,
+      UrlInterpolationService, AssetsBackendApiService,
       OBJECT_EDITOR_URL_PREFIX) {
     return {
-      link: function(scope, element) {
-        scope.getTemplateUrl = function() {
-          return OBJECT_EDITOR_URL_PREFIX + 'Filepath';
-        };
-        $compile(element.contents())(scope);
-      },
       restrict: 'E',
-      scope: true,
-      template: '<div ng-include="getTemplateUrl()"></div>',
+      scope: {
+        value: '='
+      },
+      templateUrl: UrlInterpolationService.getExtensionResourceUrl(
+        '/objects/templates/filepath_editor_directive.html'),
       controller: ['$scope', function($scope) {
         var MODE_EMPTY = 1;
         var MODE_UPLOADED = 2;
@@ -314,14 +313,15 @@ oppia.directive('filepathEditor', [
         var getTrustedResourceUrlForImageFileName = function(imageFileName) {
           var encodedFilepath = window.encodeURIComponent(imageFileName);
           return $sce.trustAsResourceUrl(
-            '/imagehandler/' + $scope.explorationId + '/' + encodedFilepath);
+            AssetsBackendApiService.getImageUrlForPreview($scope.explorationId,
+              encodedFilepath));
         };
 
         /** Scope variables and functions (visibles to the view) */
 
         // Reset the component each time the value changes
         // (e.g. if this is part of an editable list).
-        $scope.$watch('$parent.value', function(newValue) {
+        $scope.$watch('value', function(newValue) {
           if (newValue) {
             $scope.setSavedImageFilename(newValue, false);
           }
@@ -437,8 +437,8 @@ oppia.directive('filepathEditor', [
             var data = 'url(' + $scope.data.metadata.uploadedImageData + ')';
             styles.background = data + ' no-repeat';
 
-            var x = $scope.cropArea.x1 + 3;  // Add crop area border.
-            var y = $scope.cropArea.y1 + 3;  // Add crop area border.
+            var x = $scope.cropArea.x1 + 3; // Add crop area border.
+            var y = $scope.cropArea.y1 + 3; // Add crop area border.
             styles['background-position'] = '-' + x + 'px -' + y + 'px';
 
             var dimensions = $scope.calculateTargetImageDimensions();
@@ -470,8 +470,8 @@ oppia.directive('filepathEditor', [
 
           // Generate new image data and file.
           var newImageData = getCroppedImageData(
-              $scope.data.metadata.uploadedImageData,
-              x1, y1, width, height);
+            $scope.data.metadata.uploadedImageData,
+            x1, y1, width, height);
 
           var newImageFile = convertImageDataToImageFile(newImageData);
 
@@ -590,7 +590,7 @@ oppia.directive('filepathEditor', [
           };
           if (updateParent) {
             AlertsService.clearWarnings();
-            $scope.$parent.value = filename;
+            $scope.value = filename;
           }
         };
 
@@ -626,7 +626,8 @@ oppia.directive('filepathEditor', [
           var form = new FormData();
           form.append('image', resampledFile);
           form.append('payload', JSON.stringify({
-            filename: $scope.generateImageFilename()
+            filename: $scope.generateImageFilename(
+              dimensions.height, dimensions.width)
           }));
           form.append('csrf_token', GLOBALS.csrf_token);
 
@@ -646,10 +647,10 @@ oppia.directive('filepathEditor', [
             // Pre-load image before marking the image as saved.
             var img = new Image();
             img.onload = function() {
-              $scope.setSavedImageFilename(data.filepath, true);
+              $scope.setSavedImageFilename(data.filename, true);
               $scope.$apply();
             };
-            img.src = getTrustedResourceUrlForImageFileName(data.filepath);
+            img.src = getTrustedResourceUrlForImageFileName(data.filename);
           }).fail(function(data) {
             // Remove the XSSI prefix.
             var transformedData = data.responseText.substring(5);
@@ -660,7 +661,7 @@ oppia.directive('filepathEditor', [
           });
         };
 
-        $scope.generateImageFilename = function() {
+        $scope.generateImageFilename = function(height, width) {
           var date = new Date();
           return 'img_' +
               date.getFullYear() +
@@ -672,6 +673,8 @@ oppia.directive('filepathEditor', [
               ('0' + date.getSeconds()).slice(-2) +
               '_' +
               Math.random().toString(36).substr(2, 10) +
+              '_height_' + height +
+              '_width_' + width +
               '.' + OUTPUT_IMAGE_FORMAT;
         };
 
@@ -718,7 +721,7 @@ oppia.directive('filepathEditor', [
         $scope.userIsResizingCropArea = false;
         $scope.cropAreaResizeDirection = null;
 
-        $scope.explorationId = ExplorationContextService.getExplorationId();
+        $scope.explorationId = ContextService.getExplorationId();
         $scope.resetFilePathEditor();
 
         window.addEventListener('mouseup', function(e) {

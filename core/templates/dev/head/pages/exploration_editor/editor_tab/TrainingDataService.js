@@ -13,21 +13,17 @@
 // limitations under the License.
 
 /**
- * @fileoverview Service for training Data that, given an exploration ID
- * and state name , determines all of the answers which do
- * not have certain classification and are not currently
- * used as part of any classifier training models.
+ * @fileoverview Service for training data that adds a new
+ * answer to training data and verifies that training data answers are unique
+ * across all answer groups.
  */
 
 oppia.factory('TrainingDataService', [
-  '$rootScope', '$http', 'ResponsesService', 'RULE_TYPE_CLASSIFIER',
-  'RuleObjectFactory',
+  '$rootScope', '$http', 'ResponsesService', 'RuleObjectFactory',
+  'ExplorationStatesService', 'StateEditorService', 'GraphDataService',
   function(
-      $rootScope, $http, ResponsesService, RULE_TYPE_CLASSIFIER,
-      RuleObjectFactory) {
-    var _trainingDataAnswers = [];
-    var _trainingDataFrequencies = [];
-
+      $rootScope, $http, ResponsesService, RuleObjectFactory,
+      ExplorationStatesService, StateEditorService, GraphDataService) {
     var _getIndexOfTrainingData = function(answer, trainingData) {
       var index = -1;
       for (var i = 0; i < trainingData.length; i++) {
@@ -65,24 +61,9 @@ oppia.factory('TrainingDataService', [
       for (var i = 0; i < answerGroups.length; i++) {
         var answerGroup = answerGroups[i];
         var rules = answerGroup.rules;
-        var trainingData = null;
-        var classifierIndex = -1;
-        for (var j = 0; j < rules.length; j++) {
-          var rule = rules[j];
-          if (rule.type === RULE_TYPE_CLASSIFIER) {
-            trainingData = rule.inputs.training_data;
-            classifierIndex = j;
-            break;
-          }
-        }
+        var trainingData = answerGroup.trainingData;
         if (trainingData &&
             _removeAnswerFromTrainingData(answer, trainingData) !== -1) {
-          if (trainingData.length === 0 && rules.length > 1) {
-            // If the last of the training data for a classifier has been
-            // removed and the classifier is not the only rule in the group,
-            // remove the rule since it is no longer doing anything.
-            rules.splice(classifierIndex, 1);
-          }
           updatedAnswerGroups = true;
         }
       }
@@ -93,44 +74,46 @@ oppia.factory('TrainingDataService', [
 
       if (updatedAnswerGroups) {
         ResponsesService.save(
-          answerGroups, ResponsesService.getDefaultOutcome());
+          answerGroups, ResponsesService.getDefaultOutcome(),
+          function(newAnswerGroups, newDefaultOutcome) {
+            ExplorationStatesService.saveInteractionAnswerGroups(
+              StateEditorService.getActiveStateName(),
+              angular.copy(newAnswerGroups));
+
+            ExplorationStatesService.saveInteractionDefaultOutcome(
+              StateEditorService.getActiveStateName(),
+              angular.copy(newDefaultOutcome));
+
+            GraphDataService.recompute();
+          });
       }
 
       if (updatedConfirmedUnclassifiedAnswers) {
         ResponsesService.updateConfirmedUnclassifiedAnswers(
           confirmedUnclassifiedAnswers);
-      }
-
-      var index = _removeAnswerFromTrainingData(answer, _trainingDataAnswers);
-      if (index !== -1) {
-        _trainingDataFrequencies.splice(index, 1);
-        $rootScope.$broadcast('updatedTrainingData');
+        ExplorationStatesService.saveConfirmedUnclassifiedAnswers(
+          StateEditorService.getActiveStateName(),
+          angular.copy(confirmedUnclassifiedAnswers));
       }
     };
 
     return {
-      initializeTrainingData: function(explorationId, stateName) {
-        var trainingDataUrl = '/createhandler/training_data/' + explorationId +
-          '/' + encodeURIComponent(stateName);
-        $http.get(trainingDataUrl).then(function(response) {
-          var unhandledAnswers = response.data.unhandled_answers;
-          _trainingDataAnswers = [];
-          _trainingDataFrequencies = [];
-          for (var i = 0; i < unhandledAnswers.length; i++) {
-            var unhandledAnswer = unhandledAnswers[i];
-            _trainingDataAnswers.push(unhandledAnswer.answer);
-            _trainingDataFrequencies.push(unhandledAnswer.frequency);
-          }
-          $rootScope.$broadcast('updatedTrainingData');
-        });
-      },
-
       getTrainingDataAnswers: function() {
-        return _trainingDataAnswers;
+        var trainingDataAnswers = [];
+        var answerGroups = ResponsesService.getAnswerGroups();
+
+        for (var i = 0; i < answerGroups.length; i++) {
+          var answerGroup = answerGroups[i];
+          trainingDataAnswers.push({
+            answerGroupIndex: i,
+            answers: answerGroup.trainingData
+          });
+        }
+        return trainingDataAnswers;
       },
 
-      getTrainingDataFrequencies: function() {
-        return _trainingDataFrequencies;
+      getTrainingDataOfAnswerGroup: function(answerGroupIndex) {
+        return ResponsesService.getAnswerGroup(answerGroupIndex).trainingData;
       },
 
       getAllPotentialOutcomes: function(state) {
@@ -149,52 +132,65 @@ oppia.factory('TrainingDataService', [
         return potentialOutcomes;
       },
 
-      trainAnswerGroup: function(answerGroupIndex, answer) {
+      associateWithAnswerGroup: function(answerGroupIndex, answer) {
+        // Remove answer from traning data of any answer group or
+        // confirmed unclassified answers.
         _removeAnswer(answer);
 
-        var answerGroup = ResponsesService.getAnswerGroup(answerGroupIndex);
-        var rules = answerGroup.rules;
+        var answerGroups = ResponsesService.getAnswerGroups();
+        var answerGroup = answerGroups[answerGroupIndex];
 
-        // Ensure the answer group has a classifier rule.
-        var classifierRule = null;
-        for (var i = 0; i < rules.length; i++) {
-          var rule = rules[i];
-          if (rule.type === RULE_TYPE_CLASSIFIER) {
-            classifierRule = rule;
-            break;
-          }
-        }
-        if (!classifierRule) {
-          // Create new classifier rule for classification.
-          classifierRule = RuleObjectFactory.createNewClassifierRule();
-          rules.push(classifierRule);
-        }
-
-        // Train the rule to include this answer, but only if it's not already
-        // in the training data.
-        if (_getIndexOfTrainingData(
-            answer, classifierRule.inputs.training_data) === -1) {
-          classifierRule.inputs.training_data.push(answer);
-        }
-
+        // Train the rule to include this answer.
+        answerGroup.trainingData.push(answer);
         ResponsesService.updateAnswerGroup(answerGroupIndex, {
-          rules: rules
+          trainingData: answerGroup.trainingData
+        }, function(newAnswerGroups) {
+          ExplorationStatesService.saveInteractionAnswerGroups(
+            StateEditorService.getActiveStateName(),
+            angular.copy(newAnswerGroups));
+
+          GraphDataService.recompute();
         });
       },
 
-      trainDefaultResponse: function(answer) {
+      associateWithDefaultResponse: function(answer) {
+        // Remove answer from traning data of any answer group or
+        // confirmed unclassified answers.
         _removeAnswer(answer);
 
         var confirmedUnclassifiedAnswers = (
           ResponsesService.getConfirmedUnclassifiedAnswers());
-
-        if (_getIndexOfTrainingData(
-              answer, confirmedUnclassifiedAnswers) === -1) {
-          confirmedUnclassifiedAnswers.push(answer);
-        }
-
+        confirmedUnclassifiedAnswers.push(answer);
         ResponsesService.updateConfirmedUnclassifiedAnswers(
           confirmedUnclassifiedAnswers);
+        ExplorationStatesService.saveConfirmedUnclassifiedAnswers(
+          StateEditorService.getActiveStateName(),
+          angular.copy(confirmedUnclassifiedAnswers));
+      },
+
+      isConfirmedUnclassifiedAnswer: function(answer) {
+        return (_getIndexOfTrainingData(
+          answer, ResponsesService.getConfirmedUnclassifiedAnswers()) !== -1);
+      },
+
+      removeAnswerFromAnswerGroupTrainingData: function(
+          answer, answerGroupIndex) {
+        var trainingData = ResponsesService.getAnswerGroup(
+          answerGroupIndex).trainingData;
+        _removeAnswerFromTrainingData(answer, trainingData);
+
+        var answerGroups = ResponsesService.getAnswerGroups();
+        answerGroups[answerGroupIndex].trainingData = trainingData;
+
+        ResponsesService.updateAnswerGroup(answerGroupIndex, {
+          trainingData: trainingData
+        }, function(newAnswerGroups) {
+          ExplorationStatesService.saveInteractionAnswerGroups(
+            StateEditorService.getActiveStateName(),
+            angular.copy(newAnswerGroups));
+
+          GraphDataService.recompute();
+        });
       }
     };
   }

@@ -23,14 +23,19 @@ from core.tests import test_utils
 import feconf
 
 
-class ImageHandlerTest(test_utils.GenericTestBase):
+class AssetDevHandlerImageTests(test_utils.GenericTestBase):
 
     IMAGE_UPLOAD_URL_PREFIX = '/createhandler/imageupload'
-    IMAGE_VIEW_URL_PREFIX = '/imagehandler'
+    ASSET_HANDLER_URL_PREFIX = '/assetsdevhandler'
+
+    def _get_image_url(self, exp_id, filename):
+        return str(
+            '%s/%s/assets/image/%s' %
+            (self.ASSET_HANDLER_URL_PREFIX, exp_id, filename))
 
     def setUp(self):
         """Load a demo exploration and register self.EDITOR_EMAIL."""
-        super(ImageHandlerTest, self).setUp()
+        super(AssetDevHandlerImageTests, self).setUp()
 
         exp_services.delete_demo('0')
         self.system_user = user_services.get_system_user()
@@ -56,12 +61,11 @@ class ImageHandlerTest(test_utils.GenericTestBase):
             csrf_token=csrf_token,
             upload_files=(('image', 'unused_filename', raw_image),)
         )
-        filepath = response_dict['filepath']
+        filename = response_dict['filename']
 
         self.logout()
 
-        response = self.testapp.get(
-            str('%s/0/%s' % (self.IMAGE_VIEW_URL_PREFIX, filepath)))
+        response = self.testapp.get(self._get_image_url('0', filename))
         self.assertEqual(response.content_type, 'image/png')
         self.assertEqual(response.body, raw_image)
 
@@ -97,12 +101,11 @@ class ImageHandlerTest(test_utils.GenericTestBase):
 
         # Test that neither form of the image is stored.
         response = self.testapp.get(
-            str('%s/0/%s' % (self.IMAGE_VIEW_URL_PREFIX, supplied_filename)),
+            self._get_image_url('0', supplied_filename),
             expect_errors=True)
         self.assertEqual(response.status_int, 404)
         response = self.testapp.get(
-            str('%s/0/%s' % (
-                self.IMAGE_VIEW_URL_PREFIX, filename_with_correct_extension)),
+            self._get_image_url('0', filename_with_correct_extension),
             expect_errors=True)
         self.assertEqual(response.status_int, 404)
 
@@ -152,7 +155,8 @@ class ImageHandlerTest(test_utils.GenericTestBase):
         """Test retrieval of invalid images."""
 
         response = self.testapp.get(
-            '%s/0/bad_image' % self.IMAGE_VIEW_URL_PREFIX, expect_errors=True)
+            self._get_image_url('0', 'bad_image'),
+            expect_errors=True)
         self.assertEqual(response.status_int, 404)
 
     def test_bad_filenames_are_detected(self):
@@ -219,8 +223,18 @@ class ImageHandlerTest(test_utils.GenericTestBase):
 
         self.logout()
 
+    def test_request_invalid_asset_type(self):
+        """Test that requests for invalid asset type is rejected with a 404."""
+        self.login(self.EDITOR_EMAIL)
 
-class AudioHandlerTest(test_utils.GenericTestBase):
+        response = self.testapp.get(
+            '/assetsdevhandler/0/assets/unknowntype/myfile',
+            expect_errors=True)
+        self.logout()
+        self.assertEqual(response.status_int, 404)
+
+
+class AssetDevHandlerAudioTest(test_utils.GenericTestBase):
     """Test the upload of audio files to GCS."""
 
     TEST_AUDIO_FILE_MP3 = 'cafe.mp3'
@@ -230,7 +244,7 @@ class AudioHandlerTest(test_utils.GenericTestBase):
     AUDIO_UPLOAD_URL_PREFIX = '/createhandler/audioupload'
 
     def setUp(self):
-        super(AudioHandlerTest, self).setUp()
+        super(AssetDevHandlerAudioTest, self).setUp()
         exp_services.delete_demo('0')
         self.system_user = user_services.get_system_user()
         exp_services.load_demo('0')
@@ -310,7 +324,7 @@ class AudioHandlerTest(test_utils.GenericTestBase):
         response = self.testapp.get('/create/0')
         csrf_token = self.get_csrf_token_from_response(response)
 
-        # Upload empty audio
+        # Upload empty audio.
         response_dict = self.post_json(
             '%s/0' % self.AUDIO_UPLOAD_URL_PREFIX,
             {'filename': 'test.mp3'},
@@ -364,10 +378,11 @@ class AudioHandlerTest(test_utils.GenericTestBase):
         )
         self.logout()
         self.assertEqual(response_dict['status_code'], 400)
-        self.assertEqual(response_dict['error'],
-                         'No filename extension: it should have '
-                         'one of the following extensions: '
-                         '%s' % feconf.ACCEPTED_AUDIO_EXTENSIONS.keys())
+        self.assertEqual(
+            response_dict['error'],
+            'No filename extension: it should have '
+            'one of the following extensions: '
+            '%s' % feconf.ACCEPTED_AUDIO_EXTENSIONS.keys())
 
     def test_exceed_max_length_detected(self):
         """Test that audio file is less than max playback length."""

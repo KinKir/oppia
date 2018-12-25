@@ -18,11 +18,10 @@
  */
 
 oppia.factory('ExplorationObjectFactory', [
-  'INTERACTION_SPECS', 'INTERACTION_DISPLAY_MODE_INLINE', 'StateObjectFactory',
+  '$log', 'INTERACTION_SPECS', 'INTERACTION_DISPLAY_MODE_INLINE',
   'StatesObjectFactory', 'ParamChangesObjectFactory', 'ParamSpecsObjectFactory',
-  'UrlInterpolationService',
-  function(
-      INTERACTION_SPECS, INTERACTION_DISPLAY_MODE_INLINE, StateObjectFactory,
+  'UrlInterpolationService', function(
+      $log, INTERACTION_SPECS, INTERACTION_DISPLAY_MODE_INLINE,
       StatesObjectFactory, ParamChangesObjectFactory, ParamSpecsObjectFactory,
       UrlInterpolationService) {
     var Exploration = function(
@@ -54,16 +53,29 @@ oppia.factory('ExplorationObjectFactory', [
     };
 
     Exploration.prototype.getInteraction = function(stateName) {
-      return this.states.getState(stateName).interaction;
+      var state = this.states.getState(stateName);
+      if (!state) {
+        $log.error('Invalid state name: ' + stateName);
+        return null;
+      }
+      return state.interaction;
     };
 
     Exploration.prototype.getInteractionId = function(stateName) {
-      return this.states.getState(stateName).interaction.id;
+      var interaction = this.getInteraction(stateName);
+      if (interaction === null) {
+        return null;
+      }
+      return interaction.id;
     };
 
     Exploration.prototype.getInteractionCustomizationArgs =
       function(stateName) {
-        return this.states.getState(stateName).interaction.customizationArgs;
+        var interaction = this.getInteraction(stateName);
+        if (interaction === null) {
+          return null;
+        }
+        return interaction.customizationArgs;
       };
 
     Exploration.prototype.getInteractionInstructions = function(stateName) {
@@ -75,8 +87,8 @@ oppia.factory('ExplorationObjectFactory', [
       var interactionId = this.getInteractionId(stateName);
       return (
         interactionId ?
-        INTERACTION_SPECS[interactionId].narrow_instructions :
-        '');
+          INTERACTION_SPECS[interactionId].narrow_instructions :
+          '');
     };
 
     Exploration.prototype.getInteractionThumbnailSrc = function(stateName) {
@@ -121,13 +133,20 @@ oppia.factory('ExplorationObjectFactory', [
     };
 
     Exploration.prototype.getAudioTranslations = function(stateName) {
-      return this.getState(stateName).content.getBindableAudioTranslations();
+      var state = this.getState(stateName);
+      var contentIdsToAudioTranslations = state.contentIdsToAudioTranslations;
+      var contentId = state.content.getContentId();
+      return contentIdsToAudioTranslations.getBindableAudioTranslations(
+        contentId);
     };
 
     Exploration.prototype.getAudioTranslation = function(
         stateName, languageCode) {
-      return this.getState(stateName).content.getAudioTranslation(
-        languageCode);
+      var state = this.getState(stateName);
+      var contentIdsToAudioTranslations = state.contentIdsToAudioTranslations;
+      var contentId = state.content.getContentId();
+      return contentIdsToAudioTranslations.getAudioTranslation(
+        contentId, languageCode);
     };
 
     Exploration.prototype.getAllAudioTranslations = function(languageCode) {

@@ -22,9 +22,13 @@ from core.domain import email_jobs_one_off
 from core.domain import exp_jobs_one_off
 from core.domain import feedback_jobs_continuous
 from core.domain import feedback_jobs_one_off
+from core.domain import question_jobs_one_off
 from core.domain import recommendations_jobs_one_off
+from core.domain import skill_jobs_one_off
 from core.domain import stats_jobs_continuous
 from core.domain import stats_jobs_one_off
+from core.domain import story_jobs_one_off
+from core.domain import topic_jobs_one_off
 from core.domain import user_jobs_continuous
 from core.domain import user_jobs_one_off
 
@@ -32,7 +36,7 @@ from core.domain import user_jobs_one_off
 # on the admin dashboard.
 ONE_OFF_JOB_MANAGERS = [
     activity_jobs_one_off.IndexAllActivitiesJobManager,
-    collection_jobs_one_off.CollectionMigrationJob,
+    collection_jobs_one_off.CollectionMigrationOneOffJob,
     email_jobs_one_off.EmailHashRegenerationOneOffJob,
     exp_jobs_one_off.ExpSummariesContributorsOneOffJob,
     exp_jobs_one_off.ExpSummariesCreationOneOffJob,
@@ -44,16 +48,32 @@ ONE_OFF_JOB_MANAGERS = [
     exp_jobs_one_off.HintsAuditOneOffJob,
     exp_jobs_one_off.ItemSelectionInteractionOneOffJob,
     exp_jobs_one_off.ViewableExplorationsAuditJob,
-    feedback_jobs_one_off.FeedbackThreadMessagesCountOneOffJob,
+    exp_jobs_one_off.ExplorationContentValidationJobForTextAngular,
+    exp_jobs_one_off.ExplorationMigrationValidationJobForTextAngular,
+    exp_jobs_one_off.ExplorationContentValidationJobForCKEditor,
+    exp_jobs_one_off.ExplorationMigrationValidationJobForCKEditor,
+    exp_jobs_one_off.InteractionCustomizationArgsValidationJob,
+    exp_jobs_one_off.CopyToNewDirectoryJob,
+    exp_jobs_one_off.VerifyAllUrlsMatchGcsIdRegexJob,
+    feedback_jobs_one_off.PopulateLastUpdatedFieldOneOffJob,
+    feedback_jobs_one_off.ValidateLastUpdatedFieldOneOffJob,
+    question_jobs_one_off.QuestionMigrationOneOffJob,
     recommendations_jobs_one_off.ExplorationRecommendationsOneOffJob,
+    skill_jobs_one_off.SkillMigrationOneOffJob,
+    stats_jobs_one_off.ExplorationIssuesModelCreatorOneOffJob,
     stats_jobs_one_off.RecomputeStatisticsOneOffJob,
-    stats_jobs_one_off.GenerateV1StatisticsJob,
+    stats_jobs_one_off.RecomputeStatisticsValidationCopyOneOffJob,
+    stats_jobs_one_off.RegenerateMissingStatsModelsOneOffJob,
     stats_jobs_one_off.StatisticsAuditV1,
+    stats_jobs_one_off.StatisticsAuditV2,
     stats_jobs_one_off.StatisticsAudit,
-    stats_jobs_one_off.GenerateAllStatsModelsOneOffJob,
+    story_jobs_one_off.StoryMigrationOneOffJob,
+    topic_jobs_one_off.TopicMigrationOneOffJob,
     user_jobs_one_off.DashboardSubscriptionsOneOffJob,
     user_jobs_one_off.LongUserBiosOneOffJob,
     user_jobs_one_off.UserContributionsOneOffJob,
+    user_jobs_one_off.UserLanguageAuditOneOffJob,
+    user_jobs_one_off.UserLanguageResetOneOffJob,
     user_jobs_one_off.UserDefaultDashboardOneOffJob,
     user_jobs_one_off.UserFirstContributionMsecOneOffJob,
     user_jobs_one_off.UserLastExplorationActivityOneOffJob,
@@ -68,7 +88,6 @@ ONE_OFF_JOB_MANAGERS = [
 ALL_CONTINUOUS_COMPUTATION_MANAGERS = [
     feedback_jobs_continuous.FeedbackAnalyticsAggregator,
     stats_jobs_continuous.InteractionAnswerSummariesAggregator,
-    stats_jobs_continuous.StatisticsAggregator,
     user_jobs_continuous.DashboardRecentUpdatesAggregator,
     user_jobs_continuous.UserStatsAggregator,
 ]

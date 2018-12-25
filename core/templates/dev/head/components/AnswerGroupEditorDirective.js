@@ -21,30 +21,104 @@ oppia.directive('answerGroupEditor', [
     return {
       restrict: 'E',
       scope: {
-        isEditable: '=',
+        addState: '=',
         displayFeedback: '=',
+        getOnSaveTaggedMisconception: '&onSaveTaggedMisconception',
         getOnSaveAnswerGroupDestFn: '&onSaveAnswerGroupDest',
         getOnSaveAnswerGroupFeedbackFn: '&onSaveAnswerGroupFeedback',
         getOnSaveAnswerGroupRulesFn: '&onSaveAnswerGroupRules',
         getOnSaveAnswerGroupCorrectnessLabelFn: (
           '&onSaveAnswerGroupCorrectnessLabel'),
+        getTaggedMisconceptionId: '&taggedMisconceptionId',
+        isEditable: '=',
+        onSaveContentIdsToAudioTranslations: '=',
         outcome: '=',
-        suppressWarnings: '&',
-        rules: '='
+        rules: '=',
+        suppressWarnings: '&'
       },
       templateUrl: UrlInterpolationService.getDirectiveTemplateUrl(
         '/components/answer_group_editor_directive.html'),
       controller: [
-        '$scope', 'stateInteractionIdService', 'ResponsesService',
-        'EditorStateService', 'AlertsService', 'INTERACTION_SPECS',
-        'RULE_TYPE_CLASSIFIER', 'RuleObjectFactory',
+        '$scope', '$rootScope', '$uibModal', 'StateInteractionIdService',
+        'AlertsService', 'INTERACTION_SPECS', 'StateEditorService',
+        'RuleObjectFactory', 'TrainingDataEditorPanelService',
+        'ENABLE_ML_CLASSIFIERS', 'ResponsesService',
         function(
-            $scope, stateInteractionIdService, ResponsesService,
-            EditorStateService, AlertsService, INTERACTION_SPECS,
-            RULE_TYPE_CLASSIFIER, RuleObjectFactory) {
+            $scope, $rootScope, $uibModal, StateInteractionIdService,
+            AlertsService, INTERACTION_SPECS, StateEditorService,
+            RuleObjectFactory, TrainingDataEditorPanelService,
+            ENABLE_ML_CLASSIFIERS, ResponsesService) {
           $scope.rulesMemento = null;
           $scope.activeRuleIndex = ResponsesService.getActiveRuleIndex();
           $scope.editAnswerGroupForm = {};
+          $scope.misconceptionName = null;
+          $scope.misconceptions = StateEditorService.getMisconceptions();
+
+          var _getTaggedMisconceptionName = function(misconceptionId) {
+            for (var i = 0; i < $scope.misconceptions.length; i++) {
+              if (
+                $scope.misconceptions[i].getId() === misconceptionId) {
+                $scope.misconceptionName = $scope.misconceptions[i].getName();
+              }
+            }
+          };
+
+          _getTaggedMisconceptionName($scope.getTaggedMisconceptionId());
+
+          $scope.isInQuestionMode = function() {
+            return StateEditorService.isInQuestionMode();
+          };
+
+          $scope.tagAnswerGroupWithMisconception = function() {
+            var modalInstance = $uibModal.open({
+              templateUrl: UrlInterpolationService.getDirectiveTemplateUrl(
+                '/pages/topic_editor/questions/' +
+                'tag_misconception_modal_directive.html'),
+              backdrop: true,
+              controller: [
+                '$scope', '$uibModalInstance', 'StateEditorService',
+                function($scope, $uibModalInstance, StateEditorService) {
+                  $scope.misconceptions =
+                    StateEditorService.getMisconceptions();
+                  $scope.selectedMisconception = null;
+                  $scope.misconceptionFeedbackIsUsed = false;
+
+                  $scope.selectMisconception = function(misconception) {
+                    $scope.selectedMisconception = angular.copy(misconception);
+                  };
+
+                  $scope.toggleMisconceptionFeedbackUsage = function() {
+                    $scope.misconceptionFeedbackIsUsed =
+                      !$scope.misconceptionFeedbackIsUsed;
+                  };
+
+                  $scope.done = function() {
+                    $uibModalInstance.close({
+                      misconception: $scope.selectedMisconception,
+                      feedbackIsUsed: $scope.misconceptionFeedbackIsUsed
+                    });
+                  };
+
+                  $scope.cancel = function() {
+                    $uibModalInstance.dismiss('cancel');
+                  };
+                }
+              ]
+            });
+
+            modalInstance.result.then(function(returnObject) {
+              var misconception = returnObject.misconception;
+              var feedbackIsUsed = returnObject.feedbackIsUsed;
+              var outcome = angular.copy($scope.outcome);
+              if (feedbackIsUsed) {
+                outcome.feedback.setHtml(misconception.getFeedback());
+                $scope.getOnSaveAnswerGroupFeedbackFn()(outcome);
+                $rootScope.$broadcast('externalSave');
+              }
+              $scope.getOnSaveTaggedMisconception()(misconception.getId());
+              _getTaggedMisconceptionName(misconception.getId());
+            });
+          };
 
           $scope.getAnswerChoices = function() {
             return ResponsesService.getAnswerChoices();
@@ -61,7 +135,7 @@ oppia.directive('answerGroupEditor', [
           });
 
           $scope.getCurrentInteractionId = function() {
-            return stateInteractionIdService.savedMemento;
+            return StateInteractionIdService.savedMemento;
           };
 
           $scope.$on('externalSave', function() {
@@ -103,6 +177,7 @@ oppia.directive('answerGroupEditor', [
                 return [
                   getDefaultInputValue('Real'),
                   getDefaultInputValue('Real')];
+              case 'ListOfSetsOfHtmlStrings':
               case 'ListOfUnicodeString':
               case 'SetOfUnicodeString':
               case 'SetOfHtmlString':
@@ -160,19 +235,13 @@ oppia.directive('answerGroupEditor', [
             var ruleDescriptions = (
               INTERACTION_SPECS[interactionId].rule_descriptions);
             var ruleTypes = Object.keys(ruleDescriptions);
-            var ruleType = null;
-            for (var i = 0; i < ruleTypes.length; i++) {
-              if (ruleTypes[i] !== RULE_TYPE_CLASSIFIER) {
-                ruleType = ruleTypes[i];
-                break;
-              }
-            }
-            if (!ruleType) {
-              // This should never happen. An interaction must have more than
-              // just a classifier rule, as verified in a backend test suite:
+            if (ruleTypes.length === 0) {
+              // This should never happen. An interaction must have at least
+              // one rule, as verified in a backend test suite:
               //   extensions.interactions.base_test.InteractionUnitTests.
               return;
             }
+            var ruleType = ruleTypes[0];
             var description = ruleDescriptions[ruleType];
 
             var PATTERN = /\{\{\s*(\w+)\s*(\|\s*\w+\s*)?\}\}/;
@@ -239,6 +308,19 @@ oppia.directive('answerGroupEditor', [
 
           $scope.isRuleEditorOpen = function() {
             return $scope.activeRuleIndex !== -1;
+          };
+
+          $scope.isCurrentInteractionTrainable = function() {
+            var interactionId = $scope.getCurrentInteractionId();
+            return INTERACTION_SPECS[interactionId].is_trainable;
+          };
+
+          $scope.openTrainingDataEditor = function() {
+            TrainingDataEditorPanelService.openTrainingDataEditor();
+          };
+
+          $scope.isMLEnabled = function() {
+            return ENABLE_ML_CLASSIFIERS;
           };
 
           $scope.$on('onInteractionIdChanged', function() {

@@ -16,7 +16,6 @@
  * @fileoverview Service to retrieve read only information
  * about explorations from the backend.
  */
-
 oppia.factory('ReadOnlyExplorationBackendApiService', [
   '$http', '$q', 'EXPLORATION_DATA_URL_TEMPLATE',
   'EXPLORATION_VERSION_DATA_URL_TEMPLATE', 'UrlInterpolationService',
@@ -48,10 +47,10 @@ oppia.factory('ReadOnlyExplorationBackendApiService', [
     var _getExplorationUrl = function(explorationId, version) {
       if (version) {
         return UrlInterpolationService.interpolateUrl(
-        EXPLORATION_VERSION_DATA_URL_TEMPLATE, {
-          exploration_id: explorationId,
-          version: String(version)
-        });
+          EXPLORATION_VERSION_DATA_URL_TEMPLATE, {
+            exploration_id: explorationId,
+            version: String(version)
+          });
       }
       return UrlInterpolationService.interpolateUrl(
         EXPLORATION_DATA_URL_TEMPLATE, {
@@ -95,13 +94,14 @@ oppia.factory('ReadOnlyExplorationBackendApiService', [
               resolve(angular.copy(_explorationCache[explorationId]));
             }
           } else {
-            _fetchExploration(explorationId, null, function(exploration) {
-              // Save the fetched exploration to avoid future fetches.
-              _explorationCache[explorationId] = exploration;
-              if (resolve) {
-                resolve(angular.copy(exploration));
-              }
-            }, reject);
+            _fetchExploration(
+              explorationId, null, function(exploration) {
+                // Save the fetched exploration to avoid future fetches.
+                _explorationCache[explorationId] = exploration;
+                if (resolve) {
+                  resolve(angular.copy(exploration));
+                }
+              }, reject);
           }
         });
       },
@@ -115,11 +115,12 @@ oppia.factory('ReadOnlyExplorationBackendApiService', [
        */
       loadExploration: function(explorationId, version) {
         return $q(function(resolve, reject) {
-          _fetchExploration(explorationId, version, function(exploration) {
-            if (resolve) {
-              resolve(angular.copy(exploration));
-            }
-          }, reject);
+          _fetchExploration(
+            explorationId, version, function(exploration) {
+              if (resolve) {
+                resolve(angular.copy(exploration));
+              }
+            }, reject);
         });
       },
 

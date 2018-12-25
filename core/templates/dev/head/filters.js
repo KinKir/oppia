@@ -18,6 +18,10 @@
 
 oppia.constant('RULE_SUMMARY_WRAP_CHARACTER_COUNT', 30);
 
+oppia.constant(
+  'FEEDBACK_SUBJECT_MAX_CHAR_LIMIT',
+  constants.FEEDBACK_SUBJECT_MAX_CHAR_LIMIT);
+
 oppia.filter('spacesToUnderscores', [function() {
   return function(input) {
     return input.trim().replace(/ /g, '_');
@@ -92,6 +96,29 @@ oppia.filter('truncateAtFirstLine', [function() {
   };
 }]);
 
+/* Filter that trucates the input answer based on interaction type.
+ * @param {string} input - The answer to truncate.
+ * @param {string} interactionId - Interaction for which answer is to be
+    truncated.
+ * @param {integer} length - Truncated length of answer.
+ */
+oppia.filter('truncateInputBasedOnInteractionAnswerType', [
+  '$filter', 'INTERACTION_SPECS', function($filter, INTERACTION_SPECS) {
+    return function(input, interactionId, length) {
+      var answerType = INTERACTION_SPECS[interactionId].answer_type;
+      var actualInputToTruncate = '';
+      if (answerType === 'NormalizedString') {
+        actualInputToTruncate = input;
+      } else if (answerType === 'CodeEvaluation') {
+        actualInputToTruncate = input.code;
+      } else {
+        throw Error('Unknown interaction answer type');
+      }
+      return $filter('truncate')(actualInputToTruncate, length);
+    };
+  }
+]);
+
 // Filter that rounds a number to 1 decimal place.
 oppia.filter('round1', [function() {
   return function(input) {
@@ -144,7 +171,8 @@ oppia.filter('wrapTextWithEllipsis', [
 // multiple-choice input and image-click input.
 oppia.filter('parameterizeRuleDescription', [
   '$filter', 'INTERACTION_SPECS', 'FractionObjectFactory',
-  function( $filter, INTERACTION_SPECS, FractionObjectFactory) {
+  'NumberWithUnitsObjectFactory', function( $filter, INTERACTION_SPECS,
+      FractionObjectFactory, NumberWithUnitsObjectFactory) {
     return function(rule, interactionId, choices) {
       if (!rule) {
         return '';
@@ -194,8 +222,28 @@ oppia.filter('parameterizeRuleDescription', [
               }
             }
             replacementText += ']';
+          } else if (varType === 'ListOfSetsOfHtmlStrings') {
+            replacementText = '[';
+            var key = inputs[varName];
+            for (var i = 0; i < key.length; i++) {
+              replacementText += '[';
+              for (var j = 0; j < key[i].length; j++) {
+                replacementText += $filter('formatRtePreview')(key[i][j]);
+                if (j < key[i].length - 1) {
+                  replacementText += ',';
+                }
+              }
+              replacementText += ']';
+              if (i < key.length - 1) {
+                replacementText += ',';
+              }
+            }
+            replacementText += ']';
+          } else if (varType === 'DragAndDropPositiveInt') {
+            replacementText = inputs[varName] + '';
           } else {
-            // The following case is for MultipleChoiceInput
+            // The following case is for MultipleChoiceInput and
+            // DragAndDropHtmlString.
             for (var i = 0; i < choices.length; i++) {
               if (choices[i].val === inputs[varName]) {
                 var filteredLabelText =
@@ -235,6 +283,9 @@ oppia.filter('parameterizeRuleDescription', [
           replacementText = '[reference graph]';
         } else if (varType === 'Fraction') {
           replacementText = FractionObjectFactory
+            .fromDict(inputs[varName]).toString();
+        } else if (varType === 'NumberWithUnits') {
+          replacementText = NumberWithUnitsObjectFactory
             .fromDict(inputs[varName]).toString();
         } else if (
           varType === 'SetOfUnicodeString' ||
@@ -440,6 +491,20 @@ oppia.filter('stripFormatting', [function() {
   };
 }]);
 
+oppia.filter('getAbbreviatedText', [function() {
+  return function(text, characterCount) {
+    if (text.length > characterCount) {
+      var subject = text.substr(0, characterCount);
+
+      if (subject.indexOf(' ') !== -1) {
+        subject = subject.split(' ').slice(0, -1).join(' ');
+      }
+      return subject.concat('...');
+    }
+    return text;
+  };
+}]);
+
 /* The following filter replaces each RTE element occurrence in the input html
    by its corresponding name in square brackets and returns a string
    which contains the name in the same location as in the input html.
@@ -450,7 +515,7 @@ oppia.filter('formatRtePreview', ['$filter', function($filter) {
   return function(html) {
     html = html.replace(/&nbsp;/ig, ' ');
     html = html.replace(/&quot;/ig, '');
-    //Replace all html tags other than <oppia-noninteractive-**> ones to ''
+    // Replace all html tags other than <oppia-noninteractive-**> ones to ''.
     html = html.replace(/<(?!oppia-noninteractive\s*?)[^>]+>/g, '');
     var formattedOutput = html.replace(/(<([^>]+)>)/g, function(rteTag) {
       var replaceString = $filter(
@@ -461,5 +526,17 @@ oppia.filter('formatRtePreview', ['$filter', function($filter) {
       return ' [' + replaceString + '] ';
     });
     return formattedOutput.trim();
+  };
+}]);
+
+oppia.filter('formatTimer', [function() {
+  return function(input) {
+    var formatNum = function(n) {
+      return (n < 10 ? '0' : '') + n;
+    };
+
+    var seconds = input % 60;
+    var minutes = Math.floor(input / 60);
+    return (formatNum(minutes) + ':' + formatNum(seconds));
   };
 }]);

@@ -26,9 +26,9 @@ oppia.factory('BrowserCheckerService', [
       function(p) {
         return p.toString() === '[object SafariRemoteNotification]';
       })(
-        !window.safari ||
+      !window.safari ||
         (typeof safari !== 'undefined' && safari.pushNotification)
-      );
+    );
 
     var _supportsSpeechSynthesis = function() {
       supportLang = false;
@@ -54,9 +54,6 @@ oppia.factory('BrowserCheckerService', [
     return {
       supportsSpeechSynthesis: function() {
         return _supportsSpeechSynthesis();
-      },
-      supportsAudioPlayback: function() {
-        return !isSafari;
       },
       isMobileDevice: function() {
         return _isMobileDevice();

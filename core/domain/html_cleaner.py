@@ -115,7 +115,7 @@ def get_rte_components(html_string):
     """Extracts the RTE components from an HTML string.
 
     Args:
-        html: str. An HTML string.
+        html_string: str. An HTML string.
 
     Returns:
         list(dict). A list of dictionaries, each representing an RTE component.
@@ -129,12 +129,12 @@ def get_rte_components(html_string):
     oppia_custom_tag_attrs = (
         rte_component_registry.Registry.get_tag_list_with_attrs())
     for tag_name in oppia_custom_tag_attrs:
-        component_tags = soup.find_all(tag_name)
+        component_tags = soup.find_all(name=tag_name)
         for component_tag in component_tags:
             component = {'id': tag_name}
             customization_args = {}
             for attr in oppia_custom_tag_attrs[tag_name]:
-                # Unescape special HTML characters such as '&quot;'
+                # Unescape special HTML characters such as '&quot;'.
                 attr_val = parser.unescape(component_tag[attr])
                 # Adds escapes so that things like '\frac' aren't
                 # interpreted as special characters.

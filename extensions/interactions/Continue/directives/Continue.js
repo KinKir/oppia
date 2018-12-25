@@ -24,23 +24,23 @@ oppia.directive('oppiaInteractiveContinue', [
   function(HtmlEscaperService, continueRulesService, UrlInterpolationService) {
     return {
       restrict: 'E',
-      scope: {
-        onSubmit: '&'
-      },
+      scope: {},
       templateUrl: UrlInterpolationService.getExtensionResourceUrl(
         '/interactions/Continue/directives/' +
         'continue_interaction_directive.html'),
       controller: [
         '$scope', '$attrs', 'WindowDimensionsService',
-        'EVENT_PROGRESS_NAV_SUBMITTED',
+        'CurrentInteractionService', 'ContextService',
         function(
             $scope, $attrs, WindowDimensionsService,
-            EVENT_PROGRESS_NAV_SUBMITTED) {
+            CurrentInteractionService, ContextService) {
           $scope.buttonText = HtmlEscaperService.escapedJsonToObj(
             $attrs.buttonTextWithValue);
 
           var DEFAULT_BUTTON_TEXT = 'Continue';
           var DEFAULT_HUMAN_READABLE_ANSWER = 'Please continue.';
+
+          $scope.isInEditorMode = ContextService.isInExplorationEditorMode();
 
           $scope.submitAnswer = function() {
             // We used to show "(Continue)" to indicate a 'continue' action when
@@ -53,13 +53,12 @@ oppia.directive('oppiaInteractiveContinue', [
               humanReadableAnswer = $scope.buttonText;
             }
 
-            $scope.onSubmit({
-              answer: humanReadableAnswer,
-              rulesService: continueRulesService
-            });
+            CurrentInteractionService.onSubmit(
+              humanReadableAnswer, continueRulesService);
           };
 
-          $scope.$on(EVENT_PROGRESS_NAV_SUBMITTED, $scope.submitAnswer);
+          CurrentInteractionService.registerCurrentInteraction(
+            $scope.submitAnswer, null);
         }
       ]
     };

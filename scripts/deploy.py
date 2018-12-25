@@ -27,7 +27,7 @@ IMPORTANT NOTES:
     - four folders: /avatar, /general, /logo and /sidebar, containing
         images used for the avatar, general-purpose usage, logo and sidebar,
         respectively.
-    It should also contain a folder called /common, which should contain:
+    The folder should also contain:
     - favicon.ico and robots.txt.
     - one folder images/general which contains:
         - warning.png
@@ -90,7 +90,7 @@ RELEASE_DIR_NAME = 'deploy-%s-%s-%s' % (
 RELEASE_DIR_PATH = os.path.join(os.getcwd(), '..', RELEASE_DIR_NAME)
 
 APPCFG_PATH = os.path.join(
-    '..', 'oppia_tools', 'google_appengine_1.9.50', 'google_appengine',
+    '..', 'oppia_tools', 'google_appengine_1.9.67', 'google_appengine',
     'appcfg.py')
 
 LOG_FILE_PATH = os.path.join('..', 'deploy.log')
@@ -98,7 +98,7 @@ THIRD_PARTY_DIR = os.path.join('.', 'third_party')
 DEPLOY_DATA_PATH = os.path.join(
     os.getcwd(), os.pardir, 'release-scripts', 'deploy_data', APP_NAME)
 
-FILES_AT_ROOT_IN_COMMON = ['favicon.ico', 'robots.txt']
+FILES_AT_ROOT = ['favicon.ico', 'robots.txt']
 IMAGE_DIRS = ['avatar', 'general', 'sidebar', 'logo']
 
 # Denotes length for cache slug used in production mode. It consists of
@@ -114,23 +114,24 @@ def preprocess_release():
 
     (1) Changes the app name in app.yaml to APP_NAME.
     (2) Substitutes files from the per-app deployment data.
+    (3) Change the DEV_MODE constant in assets/constants.js.
     """
     # Change the app name in app.yaml.
-    f = open('app.yaml', 'r')
-    content = f.read()
+    with open('app.yaml', 'r') as app_yaml_file:
+        content = app_yaml_file.read()
     os.remove('app.yaml')
     content = content.replace('oppiaserver', APP_NAME)
-    d = open('app.yaml', 'w+')
-    d.write(content)
+    with open('app.yaml', 'w+') as new_app_yaml_file:
+        new_app_yaml_file.write(content)
 
     if not os.path.exists(DEPLOY_DATA_PATH):
         raise Exception(
             'Could not find deploy_data directory at %s' % DEPLOY_DATA_PATH)
 
-    # Copies files in common folder to assets/common.
-    for filename in FILES_AT_ROOT_IN_COMMON:
-        src = os.path.join(DEPLOY_DATA_PATH, 'common', filename)
-        dst = os.path.join(os.getcwd(), 'assets', 'common', filename)
+    # Copies files in root folder to assets/.
+    for filename in FILES_AT_ROOT:
+        src = os.path.join(DEPLOY_DATA_PATH, filename)
+        dst = os.path.join(os.getcwd(), 'assets', filename)
         if not os.path.exists(src):
             raise Exception(
                 'Could not find source path %s. Please check your deploy_data '
@@ -141,7 +142,7 @@ def preprocess_release():
                 'updated in the meantime?' % dst)
         shutil.copyfile(src, dst)
 
-    # Copies files in images to /assets/images
+    # Copies files in images to /assets/images.
     for dir_name in IMAGE_DIRS:
         src_dir = os.path.join(DEPLOY_DATA_PATH, 'images', dir_name)
         dst_dir = os.path.join(os.getcwd(), 'assets', 'images', dir_name)
@@ -156,6 +157,15 @@ def preprocess_release():
             src = os.path.join(src_dir, filename)
             dst = os.path.join(dst_dir, filename)
             shutil.copyfile(src, dst)
+
+    # Changes the DEV_MODE constant in assets/constants.js.
+    with open(os.path.join('assets', 'constants.js'), 'r') as assets_file:
+        content = assets_file.read()
+    assert '"DEV_MODE": true' in content
+    os.remove(os.path.join('assets', 'constants.js'))
+    content = content.replace('"DEV_MODE": true', '"DEV_MODE": false')
+    with open(os.path.join('assets', 'constants.js'), 'w+') as new_assets_file:
+        new_assets_file.write(content)
 
 
 def _get_served_version():
@@ -188,9 +198,11 @@ def _get_current_release_version():
 
 
 def _execute_deployment():
+    """Executes the deployment process after doing the prerequisite checks."""
     # Do prerequisite checks.
     common.require_cwd_to_be_oppia()
     common.ensure_release_scripts_folder_exists_and_is_up_to_date()
+    common.require_gcloud_to_be_available()
 
     current_git_revision = subprocess.check_output(
         ['git', 'rev-parse', 'HEAD']).strip()
@@ -221,11 +233,28 @@ def _execute_deployment():
         print 'Preprocessing release...'
         preprocess_release()
 
-        # Do a build; ensure there are no errors.
+        # Do a build, while outputting to the terminal.
         print 'Building and minifying scripts...'
-        subprocess.check_output(['python', 'scripts/build.py'])
+        build_process = subprocess.Popen(
+            ['python', 'scripts/build.py', '--prod_env'],
+            stdout=subprocess.PIPE)
+        while True:
+            line = build_process.stdout.readline().strip()
+            if not line:
+                break
+            print line
 
-        # Deploy to GAE.
+        # Wait for process to terminate, then check return code.
+        build_process.communicate()
+        if build_process.returncode > 0:
+            raise Exception('Build failed.')
+
+        # Deploy export service to GAE.
+        subprocess.check_output([
+            common.GCLOUD_PATH, 'app', 'deploy', 'export/app.yaml',
+            '--project=%s' % APP_NAME])
+
+        # Deploy app to GAE.
         subprocess.check_output([APPCFG_PATH, 'update', '.'])
 
         # Writing log entry.

@@ -24,7 +24,7 @@ oppia.factory('ExplorationSaveService', [
   'ExplorationLanguageCodeService', 'ExplorationRightsService',
   'ExplorationWarningsService', 'ExplorationDiffService',
   'ExplorationInitStateNameService', 'RouterService',
-  'FocusManagerService', 'ChangeListService', 'siteAnalyticsService',
+  'FocusManagerService', 'ChangeListService', 'SiteAnalyticsService',
   'StatesObjectFactory', 'UrlInterpolationService',
   'AutosaveInfoModalsService',
   function(
@@ -35,7 +35,7 @@ oppia.factory('ExplorationSaveService', [
       ExplorationLanguageCodeService, ExplorationRightsService,
       ExplorationWarningsService, ExplorationDiffService,
       ExplorationInitStateNameService, RouterService,
-      FocusManagerService, ChangeListService, siteAnalyticsService,
+      FocusManagerService, ChangeListService, SiteAnalyticsService,
       StatesObjectFactory, UrlInterpolationService,
       AutosaveInfoModalsService) {
     // Whether or not a save action is currently in progress
@@ -83,10 +83,10 @@ oppia.factory('ExplorationSaveService', [
         backdrop: true,
         controller: [
           '$scope', '$window', '$uibModalInstance',
-          'ExplorationContextService',
+          'ContextService',
           function(
               $scope, $window, $uibModalInstance,
-              ExplorationContextService) {
+              ContextService) {
             $scope.congratsImgUrl = UrlInterpolationService.getStaticImageUrl(
               '/general/congrats.svg');
             $scope.DEFAULT_TWITTER_SHARE_MESSAGE_EDITOR = (
@@ -95,7 +95,7 @@ oppia.factory('ExplorationSaveService', [
               $uibModalInstance.dismiss('cancel');
             };
             $scope.explorationId = (
-              ExplorationContextService.getExplorationId());
+              ContextService.getExplorationId());
             $scope.explorationLink = (
               $window.location.protocol + '//' +
               $window.location.host + '/explore/' + $scope.explorationId);
@@ -148,7 +148,7 @@ oppia.factory('ExplorationSaveService', [
             }
 
             showCongratulatorySharingModal();
-            siteAnalyticsService.registerPublishExplorationEvent(
+            SiteAnalyticsService.registerPublishExplorationEvent(
               ExplorationDataService.explorationId);
             whenModalClosed.resolve();
           });
@@ -165,15 +165,15 @@ oppia.factory('ExplorationSaveService', [
       var changeList = ChangeListService.getChangeList();
 
       if (ExplorationRightsService.isPrivate()) {
-        siteAnalyticsService.registerCommitChangesToPrivateExplorationEvent(
+        SiteAnalyticsService.registerCommitChangesToPrivateExplorationEvent(
           ExplorationDataService.explorationId);
       } else {
-        siteAnalyticsService.registerCommitChangesToPublicExplorationEvent(
+        SiteAnalyticsService.registerCommitChangesToPublicExplorationEvent(
           ExplorationDataService.explorationId);
       }
 
       if (ExplorationWarningsService.countWarnings() === 0) {
-        siteAnalyticsService.registerSavePlayableExplorationEvent(
+        SiteAnalyticsService.registerSavePlayableExplorationEvent(
           ExplorationDataService.explorationId);
       }
       saveIsInProgress = true;
@@ -272,7 +272,7 @@ oppia.factory('ExplorationSaveService', [
         // so we can remove the loading-dots.
         var whenModalsClosed = $q.defer();
 
-        siteAnalyticsService.registerOpenPublishExplorationModalEvent(
+        SiteAnalyticsService.registerOpenPublishExplorationModalEvent(
           ExplorationDataService.explorationId);
         AlertsService.clearWarnings();
 
@@ -330,12 +330,12 @@ oppia.factory('ExplorationSaveService', [
 
                 if (ExplorationStatesService.isInitialized()) {
                   var categoryIsInSelect2 = $scope.CATEGORY_LIST_FOR_SELECT2
-                  .some(
-                    function(categoryItem) {
-                      return categoryItem.id ===
+                    .some(
+                      function(categoryItem) {
+                        return categoryItem.id ===
                       ExplorationCategoryService.savedMemento;
-                    }
-                  );
+                      }
+                    );
 
                   // If the current category is not in the dropdown, add it
                   // as the first option.
@@ -434,14 +434,14 @@ oppia.factory('ExplorationSaveService', [
                   onEndLoadingCallback();
                 }
                 openPublishExplorationModal(
-                    onStartLoadingCallback, onEndLoadingCallback)
+                  onStartLoadingCallback, onEndLoadingCallback)
                   .then(function() {
                     whenModalsClosed.resolve();
                   });
               });
             } else {
               openPublishExplorationModal(
-                  onStartLoadingCallback, onEndLoadingCallback)
+                onStartLoadingCallback, onEndLoadingCallback)
                 .then(function() {
                   whenModalsClosed.resolve();
                 });
@@ -450,7 +450,7 @@ oppia.factory('ExplorationSaveService', [
         } else {
           // No further metadata is needed. Open the publish modal immediately.
           openPublishExplorationModal(
-              onStartLoadingCallback, onEndLoadingCallback)
+            onStartLoadingCallback, onEndLoadingCallback)
             .then(function() {
               whenModalsClosed.resolve();
             });

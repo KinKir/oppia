@@ -21,12 +21,12 @@
 // custom directive tags in the provided value.
 oppia.directive('angularHtmlBind', ['$compile', function($compile) {
   return {
-    restrict: 'A',
+    restrict: 'E',
     link: function(scope, elm, attrs) {
       // Clean up old scopes if the html changes.
       // Reference: https://stackoverflow.com/a/42927814
       var newScope;
-      scope.$watch(attrs.angularHtmlBind, function(newValue) {
+      scope.$watch(attrs.htmlData, function(newValue) {
         if (newScope) {
           newScope.$destroy();
         }
@@ -41,10 +41,10 @@ oppia.directive('angularHtmlBind', ['$compile', function($compile) {
 
 oppia.directive('mathjaxBind', [function() {
   return {
-    restrict: 'A',
+    restrict: 'E',
     controller: [
       '$scope', '$element', '$attrs', function($scope, $element, $attrs) {
-        $scope.$watch($attrs.mathjaxBind, function(value) {
+        $scope.$watch($attrs.mathjaxData, function(value) {
           var $script = angular.element(
             '<script type="math/tex">'
           ).html(value === undefined ? '' : value);
@@ -60,7 +60,7 @@ oppia.directive('mathjaxBind', [function() {
 // Highlights the text of an input field when it is clicked.
 oppia.directive('selectOnClick', [function() {
   return {
-    restrict: 'A',
+    restrict: 'E',
     link: function(scope, elm) {
       elm.bind('click', function() {
         this.select();
@@ -71,41 +71,42 @@ oppia.directive('selectOnClick', [function() {
 
 // A popover that is shown when its label is hovered or clicked upon, and
 // disappears when focus moves away from its label.
-oppia.directive('customPopover', ['$sce', function($sce) {
-  return {
-    restrict: 'A',
-    template: (
-      '<div style="cursor: pointer;" ng-click="showPopover()"><[label]></div>'
-    ),
-    link: function(scope, elt, attrs) {
-      scope.label = attrs.popoverLabel;
-      $(elt).popover({
-        trigger: 'hover',
-        html: true,
-        content: $sce.getTrustedHtml(
-          '<pre class="oppia-pre-wrapped-text">' + attrs.popoverText +
-          '</pre>'),
-        placement: attrs.popoverPlacement
-      });
-    },
-    controller: ['$scope', '$element', function($scope, $element) {
-      $scope.isShown = false;
-
-      $element.on('shown.bs.popover', function() {
-        $scope.isShown = true;
-      });
-      $element.on('hidden.bs.popover', function() {
+oppia.directive('customPopover', [
+  'UrlInterpolationService', '$sce', function(UrlInterpolationService, $sce) {
+    return {
+      restrict: 'E',
+      templateUrl: UrlInterpolationService.getDirectiveTemplateUrl(
+        '/custom_popover_directive.html'),
+      link: function(scope, elt, attrs) {
+        scope.label = attrs.popoverLabel;
+        $(elt).popover({
+          trigger: 'hover',
+          html: true,
+          content: $sce.getTrustedHtml(
+            '<pre class="oppia-pre-wrapped-text">' + attrs.popoverText +
+            '</pre>'),
+          placement: attrs.popoverPlacement
+        });
+      },
+      controller: ['$scope', '$element', function($scope, $element) {
         $scope.isShown = false;
-      });
 
-      $scope.showPopover = function() {
-        if (!$scope.isShown) {
-          $element.popover('show');
-        }
-      };
-    }]
-  };
-}]);
+        $element.on('shown.bs.popover', function() {
+          $scope.isShown = true;
+        });
+        $element.on('hidden.bs.popover', function() {
+          $scope.isShown = false;
+        });
+
+        $scope.showPopover = function() {
+          if (!$scope.isShown) {
+            $element.popover('show');
+          }
+        };
+      }]
+    };
+  }
+]);
 
 // When set as an attr of an <input> element, moves focus to that element
 // when a 'focusOn' event is broadcast.
@@ -129,8 +130,8 @@ oppia.directive('focusOn', [
 
 oppia.directive('mobileFriendlyTooltip', ['$timeout', function($timeout) {
   return {
-    restrict: 'A',
-    scope: true,
+    restrict: 'E',
+    scope: {},
     controller: ['$scope', 'DeviceInfoService', function(
         $scope, DeviceInfoService) {
       $scope.opened = false;

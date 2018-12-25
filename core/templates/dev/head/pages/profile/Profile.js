@@ -17,9 +17,9 @@
  */
 
 oppia.controller('Profile', [
-  '$scope', '$http', '$rootScope', 'DateTimeFormatService',
+  '$scope', '$http', '$rootScope', '$log', 'DateTimeFormatService',
   'UrlInterpolationService',
-  function($scope, $http, $rootScope, DateTimeFormatService,
+  function($scope, $http, $rootScope, $log, DateTimeFormatService,
       UrlInterpolationService) {
     var profileDataUrl = '/profilehandler/data/' + GLOBALS.PROFILE_USERNAME;
     var DEFAULT_PROFILE_PICTURE_URL = UrlInterpolationService.getStaticImageUrl(
@@ -126,14 +126,27 @@ oppia.controller('Profile', [
           $log.error('Error: cannot decrement page');
         } else {
           $scope.currentPageNumber--;
+          $scope.startingExplorationNumber = (
+            $scope.currentPageNumber * $scope.PAGE_SIZE + 1
+          );
+          $scope.endingExplorationNumber = (
+            ($scope.currentPageNumber + 1) * $scope.PAGE_SIZE
+          );
         }
       };
       $scope.goToNextPage = function() {
-        if ($scope.currentPageNumber * $scope.PAGE_SIZE >= (
-            data.edited_exp_summary_dicts.length)) {
+        if (($scope.currentPageNumber + 1) * $scope.PAGE_SIZE >= (
+          data.edited_exp_summary_dicts.length)) {
           $log.error('Error: Cannot increment page');
         } else {
           $scope.currentPageNumber++;
+          $scope.startingExplorationNumber = (
+            $scope.currentPageNumber * $scope.PAGE_SIZE + 1
+          );
+          $scope.endingExplorationNumber = (
+            Math.min($scope.numUserPortfolioExplorations,
+              ($scope.currentPageNumber + 1) * $scope.PAGE_SIZE)
+          );
         }
       };
 
@@ -147,7 +160,7 @@ oppia.controller('Profile', [
         $scope.explorationIndexEnd = (
           $scope.explorationIndexStart + $scope.PAGE_SIZE - 1);
         for (var ind = $scope.explorationIndexStart;
-            ind <= $scope.explorationIndexEnd; ind++) {
+          ind <= $scope.explorationIndexEnd; ind++) {
           $scope.explorationsOnPage.push($scope.userEditedExplorations[ind]);
           if (ind === $scope.userEditedExplorations.length - 1) {
             break;

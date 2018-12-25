@@ -18,6 +18,7 @@ import json
 import os
 
 from constants import constants
+from core.domain import exp_domain
 from core.domain import exp_jobs_one_off
 from core.domain import exp_services
 from core.domain import rating_services
@@ -31,10 +32,10 @@ import utils
 CAN_EDIT_STR = 'can_edit'
 
 
-class LibraryPageTest(test_utils.GenericTestBase):
+class LibraryPageTests(test_utils.GenericTestBase):
 
     def setUp(self):
-        super(LibraryPageTest, self).setUp()
+        super(LibraryPageTests, self).setUp()
         self.signup(self.EDITOR_EMAIL, self.EDITOR_USERNAME)
         self.editor_id = self.get_user_id_from_email(self.EDITOR_EMAIL)
 
@@ -46,18 +47,20 @@ class LibraryPageTest(test_utils.GenericTestBase):
         """Test access to the library page."""
         response = self.testapp.get(feconf.LIBRARY_INDEX_URL)
         self.assertEqual(response.status_int, 200)
-        response.mustcontain('I18N_LIBRARY_PAGE_TITLE')
+        response.mustcontain('Library - Oppia')
 
     def test_library_handler_demo_exploration(self):
         """Test the library data handler on demo explorations."""
         response_dict = self.get_json(feconf.LIBRARY_SEARCH_DATA_URL)
         self.assertEqual({
+            'iframed': False,
             'is_admin': False,
+            'is_topic_manager': False,
             'is_moderator': False,
             'is_super_admin': False,
             'activity_list': [],
-            'search_cursor': None,
-            'profile_picture_data_url': None,
+            'additional_angular_modules': [],
+            'search_cursor': None
         }, response_dict)
 
         # Load a public demo exploration.
@@ -91,17 +94,17 @@ class LibraryPageTest(test_utils.GenericTestBase):
             self.count_jobs_in_taskqueue(
                 taskqueue_services.QUEUE_NAME_ONE_OFF_JOBS), 0)
 
-        # change title and category
+        # Change title and category.
         exp_services.update_exploration(
-            self.editor_id, '0', [{
+            self.editor_id, '0', [exp_domain.ExplorationChange({
                 'cmd': 'edit_exploration_property',
                 'property_name': 'title',
                 'new_value': 'A new title!'
-            }, {
+            }), exp_domain.ExplorationChange({
                 'cmd': 'edit_exploration_property',
                 'property_name': 'category',
                 'new_value': 'A new category'
-            }],
+            })],
             'Change title and category')
 
         # Load the search results with an empty query.
@@ -132,7 +135,7 @@ class LibraryPageTest(test_utils.GenericTestBase):
             'search_cursor': None,
         }, response_dict)
 
-        # Create exploration A
+        # Create exploration A.
         exploration = self.save_new_valid_exploration(
             'A', self.admin_id, title='Title A', category='Category A',
             objective='Objective A')
@@ -143,7 +146,7 @@ class LibraryPageTest(test_utils.GenericTestBase):
         response_dict = self.get_json(feconf.LIBRARY_SEARCH_DATA_URL)
         self.assertEqual(response_dict['activity_list'], [])
 
-        # Create exploration B
+        # Create exploration B.
         exploration = self.save_new_valid_exploration(
             'B', self.admin_id, title='Title B', category='Category B',
             objective='Objective B')
@@ -151,7 +154,7 @@ class LibraryPageTest(test_utils.GenericTestBase):
             self.admin_id, exploration, 'Exploration B', [])
         rights_manager.publish_exploration(self.admin, 'B')
 
-        # Publish exploration A
+        # Publish exploration A.
         rights_manager.publish_exploration(self.admin, 'A')
 
         exp_services.index_explorations_given_ids(['A', 'B'])
@@ -176,7 +179,7 @@ class LibraryPageTest(test_utils.GenericTestBase):
             'status': rights_manager.ACTIVITY_STATUS_PUBLIC,
         }, response_dict['activity_list'][0])
 
-        # Delete exploration A
+        # Delete exploration A.
         exp_services.delete_exploration(self.admin_id, 'A')
 
         # Load the search results with an empty query.
@@ -192,7 +195,7 @@ class LibraryPageTest(test_utils.GenericTestBase):
         }, response_dict['activity_list'][0])
 
 
-class LibraryGroupPageTest(test_utils.GenericTestBase):
+class LibraryGroupPageTests(test_utils.GenericTestBase):
 
     def test_library_group_pages(self):
         """Test access to the top rated and recently published pages."""
@@ -206,14 +209,13 @@ class LibraryGroupPageTest(test_utils.GenericTestBase):
         """Test library handler for recently published group page."""
         response_dict = self.get_json(
             feconf.LIBRARY_GROUP_DATA_URL,
-            {'group_name': feconf.LIBRARY_GROUP_RECENTLY_PUBLISHED})
+            params={'group_name': feconf.LIBRARY_GROUP_RECENTLY_PUBLISHED})
         self.assertDictContainsSubset({
             'is_admin': False,
             'is_moderator': False,
             'is_super_admin': False,
             'activity_list': [],
             'preferred_language_codes': ['en'],
-            'profile_picture_data_url': None,
         }, response_dict)
 
         # Load a public demo exploration.
@@ -221,7 +223,7 @@ class LibraryGroupPageTest(test_utils.GenericTestBase):
 
         response_dict = self.get_json(
             feconf.LIBRARY_GROUP_DATA_URL,
-            {'group_name': feconf.LIBRARY_GROUP_RECENTLY_PUBLISHED})
+            params={'group_name': feconf.LIBRARY_GROUP_RECENTLY_PUBLISHED})
         self.assertEqual(len(response_dict['activity_list']), 1)
         self.assertDictContainsSubset({
             'header_i18n_id': 'I18N_LIBRARY_GROUPS_RECENTLY_PUBLISHED',
@@ -244,14 +246,13 @@ class LibraryGroupPageTest(test_utils.GenericTestBase):
 
         response_dict = self.get_json(
             feconf.LIBRARY_GROUP_DATA_URL,
-            {'group_name': feconf.LIBRARY_GROUP_TOP_RATED})
+            params={'group_name': feconf.LIBRARY_GROUP_TOP_RATED})
         self.assertDictContainsSubset({
             'is_admin': False,
             'is_moderator': False,
             'is_super_admin': False,
             'activity_list': [],
             'preferred_language_codes': ['en'],
-            'profile_picture_data_url': None,
         }, response_dict)
 
         # Assign rating to exploration to test handler for top rated
@@ -261,7 +262,7 @@ class LibraryGroupPageTest(test_utils.GenericTestBase):
         # Test whether the response contains the exploration we have rated.
         response_dict = self.get_json(
             feconf.LIBRARY_GROUP_DATA_URL,
-            {'group_name': feconf.LIBRARY_GROUP_TOP_RATED})
+            params={'group_name': feconf.LIBRARY_GROUP_TOP_RATED})
         self.assertDictContainsSubset({
             'header_i18n_id': 'I18N_LIBRARY_GROUPS_TOP_RATED_EXPLORATIONS',
             'preferred_language_codes': ['en'],
@@ -287,7 +288,7 @@ class LibraryGroupPageTest(test_utils.GenericTestBase):
         # rated and they are returned in decending order of rating.
         response_dict = self.get_json(
             feconf.LIBRARY_GROUP_DATA_URL,
-            {'group_name': feconf.LIBRARY_GROUP_TOP_RATED})
+            params={'group_name': feconf.LIBRARY_GROUP_TOP_RATED})
         self.assertEqual(len(response_dict['activity_list']), 2)
         self.assertDictContainsSubset({
             'id': '1',
@@ -307,7 +308,7 @@ class LibraryGroupPageTest(test_utils.GenericTestBase):
         }, response_dict['activity_list'][1])
 
 
-class CategoryConfigTest(test_utils.GenericTestBase):
+class CategoryConfigTests(test_utils.GenericTestBase):
 
     def test_thumbnail_icons_exist_for_each_category(self):
         all_categories = constants.CATEGORIES_TO_COLORS.keys()
@@ -324,14 +325,14 @@ class CategoryConfigTest(test_utils.GenericTestBase):
             '%s.svg' % constants.DEFAULT_THUMBNAIL_ICON))
 
 
-class ExplorationSummariesHandlerTest(test_utils.GenericTestBase):
+class ExplorationSummariesHandlerTests(test_utils.GenericTestBase):
 
     PRIVATE_EXP_ID_EDITOR = 'eid0'
     PUBLIC_EXP_ID_EDITOR = 'eid1'
     PRIVATE_EXP_ID_VIEWER = 'eid2'
 
     def setUp(self):
-        super(ExplorationSummariesHandlerTest, self).setUp()
+        super(ExplorationSummariesHandlerTests, self).setUp()
         self.signup(self.EDITOR_EMAIL, self.EDITOR_USERNAME)
         self.editor_id = self.get_user_id_from_email(self.EDITOR_EMAIL)
 
@@ -353,11 +354,13 @@ class ExplorationSummariesHandlerTest(test_utils.GenericTestBase):
     def test_can_get_public_exploration_summaries(self):
         self.login(self.VIEWER_EMAIL)
 
-        response_dict = self.get_json(feconf.EXPLORATION_SUMMARIES_DATA_URL, {
-            'stringified_exp_ids': json.dumps([
-                self.PRIVATE_EXP_ID_EDITOR, self.PUBLIC_EXP_ID_EDITOR,
-                self.PRIVATE_EXP_ID_VIEWER])
-        })
+        response_dict = self.get_json(
+            feconf.EXPLORATION_SUMMARIES_DATA_URL,
+            params={
+                'stringified_exp_ids': json.dumps([
+                    self.PRIVATE_EXP_ID_EDITOR, self.PUBLIC_EXP_ID_EDITOR,
+                    self.PRIVATE_EXP_ID_VIEWER])
+            })
         self.assertIn('summaries', response_dict)
 
         summaries = response_dict['summaries']
@@ -371,12 +374,14 @@ class ExplorationSummariesHandlerTest(test_utils.GenericTestBase):
     def test_can_get_editable_private_exploration_summaries(self):
         self.login(self.VIEWER_EMAIL)
 
-        response_dict = self.get_json(feconf.EXPLORATION_SUMMARIES_DATA_URL, {
-            'stringified_exp_ids': json.dumps([
-                self.PRIVATE_EXP_ID_EDITOR, self.PUBLIC_EXP_ID_EDITOR,
-                self.PRIVATE_EXP_ID_VIEWER]),
-            'include_private_explorations': True
-        })
+        response_dict = self.get_json(
+            feconf.EXPLORATION_SUMMARIES_DATA_URL,
+            params={
+                'stringified_exp_ids': json.dumps([
+                    self.PRIVATE_EXP_ID_EDITOR, self.PUBLIC_EXP_ID_EDITOR,
+                    self.PRIVATE_EXP_ID_VIEWER]),
+                'include_private_explorations': True
+            })
         self.assertIn('summaries', response_dict)
 
         summaries = response_dict['summaries']
@@ -393,12 +398,14 @@ class ExplorationSummariesHandlerTest(test_utils.GenericTestBase):
             self.editor, self.PRIVATE_EXP_ID_EDITOR, self.viewer_id,
             rights_manager.ROLE_EDITOR)
 
-        response_dict = self.get_json(feconf.EXPLORATION_SUMMARIES_DATA_URL, {
-            'stringified_exp_ids': json.dumps([
-                self.PRIVATE_EXP_ID_EDITOR, self.PUBLIC_EXP_ID_EDITOR,
-                self.PRIVATE_EXP_ID_VIEWER]),
-            'include_private_explorations': True
-        })
+        response_dict = self.get_json(
+            feconf.EXPLORATION_SUMMARIES_DATA_URL,
+            params={
+                'stringified_exp_ids': json.dumps([
+                    self.PRIVATE_EXP_ID_EDITOR, self.PUBLIC_EXP_ID_EDITOR,
+                    self.PRIVATE_EXP_ID_VIEWER]),
+                'include_private_explorations': True
+            })
         self.assertIn('summaries', response_dict)
 
         summaries = response_dict['summaries']
@@ -414,12 +421,14 @@ class ExplorationSummariesHandlerTest(test_utils.GenericTestBase):
         self.logout()
 
     def test_cannot_get_private_exploration_summaries_when_logged_out(self):
-        response_dict = self.get_json(feconf.EXPLORATION_SUMMARIES_DATA_URL, {
-            'stringified_exp_ids': json.dumps([
-                self.PRIVATE_EXP_ID_EDITOR, self.PUBLIC_EXP_ID_EDITOR,
-                self.PRIVATE_EXP_ID_VIEWER]),
-            'include_private_explorations': True
-        })
+        response_dict = self.get_json(
+            feconf.EXPLORATION_SUMMARIES_DATA_URL,
+            params={
+                'stringified_exp_ids': json.dumps([
+                    self.PRIVATE_EXP_ID_EDITOR, self.PUBLIC_EXP_ID_EDITOR,
+                    self.PRIVATE_EXP_ID_VIEWER]),
+                'include_private_explorations': True
+            })
         self.assertIn('summaries', response_dict)
 
         summaries = response_dict['summaries']

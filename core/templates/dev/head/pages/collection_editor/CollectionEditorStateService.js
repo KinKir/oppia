@@ -15,8 +15,7 @@
 /**
  * @fileoverview Service to maintain the state of a single collection shared
  * throughout the collection editor. This service provides functionality for
- * retrieving the collection, saving it, and listening for changes. The service
- * also maintains a list of all skills stored within the collection.
+ * retrieving the collection, saving it, and listening for changes.
  */
 
 oppia.constant('EVENT_COLLECTION_INITIALIZED', 'collectionInitialized');
@@ -36,8 +35,8 @@ oppia.factory('CollectionEditorStateService', [
     var _collectionRights = (
       CollectionRightsObjectFactory.createEmptyCollectionRights());
     var _collectionIsInitialized = false;
-    var _isLoadingCollection = false;
-    var _isSavingCollection = false;
+    var _collectionIsLoading = false;
+    var _collectionIsBeingSaved = false;
 
     var _setCollection = function(collection) {
       _collection.copyFromCollection(collection);
@@ -67,7 +66,7 @@ oppia.factory('CollectionEditorStateService', [
        * additional behavior of this function.
        */
       loadCollection: function(collectionId) {
-        _isLoadingCollection = true;
+        _collectionIsLoading = true;
         EditableCollectionBackendApiService.fetchCollection(
           collectionId).then(
           function(newBackendCollectionObject) {
@@ -76,18 +75,18 @@ oppia.factory('CollectionEditorStateService', [
           function(error) {
             AlertsService.addWarning(
               error || 'There was an error when loading the collection.');
-            _isLoadingCollection = false;
+            _collectionIsLoading = false;
           });
         CollectionRightsBackendApiService.fetchCollectionRights(
           collectionId).then(function(newBackendCollectionRightsObject) {
-            _updateCollectionRights(newBackendCollectionRightsObject);
-            _isLoadingCollection = false;
-          }, function(error) {
-            AlertsService.addWarning(
-              error ||
-              'There was an error when loading the collection rights.');
-            _isLoadingCollection = false;
-          });
+          _updateCollectionRights(newBackendCollectionRightsObject);
+          _collectionIsLoading = false;
+        }, function(error) {
+          AlertsService.addWarning(
+            error ||
+            'There was an error when loading the collection rights.');
+          _collectionIsLoading = false;
+        });
       },
 
       /**
@@ -95,7 +94,7 @@ oppia.factory('CollectionEditorStateService', [
        * collection maintained by this service.
        */
       isLoadingCollection: function() {
-        return _isLoadingCollection;
+        return _collectionIsLoading;
       },
 
       /**
@@ -171,21 +170,21 @@ oppia.factory('CollectionEditorStateService', [
         if (!UndoRedoService.hasChanges()) {
           return false;
         }
-        _isSavingCollection = true;
+        _collectionIsBeingSaved = true;
         EditableCollectionBackendApiService.updateCollection(
           _collection.getId(), _collection.getVersion(),
           commitMessage, UndoRedoService.getCommittableChangeList()).then(
           function(collectionBackendObject) {
             _updateCollection(collectionBackendObject);
             UndoRedoService.clearChanges();
-            _isSavingCollection = false;
+            _collectionIsBeingSaved = false;
             if (successCallback) {
               successCallback();
             }
           }, function(error) {
             AlertsService.addWarning(
               error || 'There was an error when saving the collection.');
-            _isSavingCollection = false;
+            _collectionIsBeingSaved = false;
           });
         return true;
       },
@@ -195,7 +194,7 @@ oppia.factory('CollectionEditorStateService', [
        * collection maintained by this service.
        */
       isSavingCollection: function() {
-        return _isSavingCollection;
+        return _collectionIsBeingSaved;
       }
     };
   }

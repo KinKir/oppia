@@ -1,4 +1,4 @@
-// Copyright 2016 The Oppia Authors. All Rights Reserved.
+// Copyright 2018 The Oppia Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,38 +13,129 @@
 // limitations under the License.
 
 /**
- * @fileoverview Service that maintains state of the current exploration.
+ * @fileoverview A service that maintains a record of the state of the player,
+ *  like engine service.
  */
 
-oppia.factory('ExplorationPlayerStateService', [function() {
-  var exploration = null;
-  return {
-    setExploration: function(newExploration) {
-      exploration = newExploration;
-    },
+oppia.factory('ExplorationPlayerStateService', [
+  '$log', 'ContextService', 'EditableExplorationBackendApiService',
+  'ExplorationEngineService', 'NumberAttemptsService',
+  'PlayerCorrectnessFeedbackEnabledService', 'PlayerPositionService',
+  'PlayerTranscriptService', 'PlaythroughIssuesService', 'PlaythroughService',
+  'PretestEngineService', 'PretestQuestionBackendApiService',
+  'ReadOnlyExplorationBackendApiService', 'StateClassifierMappingService',
+  'StatsReportingService', 'UrlService',
+  function(
+      $log, ContextService, EditableExplorationBackendApiService,
+      ExplorationEngineService, NumberAttemptsService,
+      PlayerCorrectnessFeedbackEnabledService, PlayerPositionService,
+      PlayerTranscriptService, PlaythroughIssuesService, PlaythroughService,
+      PretestEngineService, PretestQuestionBackendApiService,
+      ReadOnlyExplorationBackendApiService, StateClassifierMappingService,
+      StatsReportingService, UrlService) {
+    var currentEngineService = null;
+    var inPretestMode = false;
+    var editorPreviewMode = ContextService.isInExplorationEditorPage();
+    var explorationId = ContextService.getExplorationId();
+    var version = GLOBALS.explorationVersion;
+    var storyId = UrlService.getStoryIdInPlayer();
 
-    getExploration: function() {
-      return exploration;
-    },
+    var initializeExplorationServices = function(
+        returnDict, arePretestsAvailable, callback) {
+      StateClassifierMappingService.init(returnDict.state_classifier_mapping);
+      StatsReportingService.initSession(
+        explorationId, returnDict.exploration.title, version,
+        returnDict.session_id, GLOBALS.collectionId);
+      PlaythroughService.initSession(
+        explorationId, version, returnDict.record_playthrough_probability);
+      PlaythroughIssuesService.initSession(explorationId, version);
+      PlayerCorrectnessFeedbackEnabledService.init(
+        returnDict.correctness_feedback_enabled);
+      ExplorationEngineService.init(
+        returnDict.exploration, returnDict.version,
+        returnDict.preferred_audio_language_code, returnDict.auto_tts_enabled,
+        arePretestsAvailable ? function() {} : callback);
+    };
 
-    isInteractionInline: function(stateName) {
-      return exploration.isInteractionInline(stateName);
-    },
+    var initializePretestServices = function(pretestQuestionDicts, callback) {
+      PlayerCorrectnessFeedbackEnabledService.init(true);
+      PretestEngineService.init(pretestQuestionDicts, callback);
+    };
 
-    getInteractionInstructions: function(stateName) {
-      return exploration.getInteractionInstructions(stateName);
-    },
+    var setExplorationMode = function() {
+      inPretestMode = false;
+      currentEngineService = ExplorationEngineService;
+    };
 
-    isStateTerminal: function(stateName) {
-      return exploration.isStateTerminal(stateName);
-    },
+    var setPretestMode = function() {
+      inPretestMode = true;
+      currentEngineService = PretestEngineService;
+    };
 
-    getAuthorRecommendedExpIds: function(stateName) {
-      return exploration.getAuthorRecommendedExpIds(stateName);
-    },
+    var initExplorationPreviewPlayer = function(callback) {
+      setExplorationMode();
+      EditableExplorationBackendApiService.fetchApplyDraftExploration(
+        explorationId
+      ).then(function(explorationData) {
+        ExplorationEngineService.init(
+          explorationData, null, null, null, callback);
+        PlayerCorrectnessFeedbackEnabledService.init(
+          explorationData.correctness_feedback_enabled);
+        NumberAttemptsService.reset();
+      });
+    };
 
-    getLanguageCode: function() {
-      return exploration.getLanguageCode();
-    },
-  };
-}]);
+    var initExplorationPlayer = function(callback) {
+      var explorationDataPromise = version ?
+        ReadOnlyExplorationBackendApiService.loadExploration(
+          explorationId, version) :
+        ReadOnlyExplorationBackendApiService.loadLatestExploration(
+          explorationId);
+      Promise.all([
+        explorationDataPromise,
+        PretestQuestionBackendApiService.fetchPretestQuestions(
+          explorationId, storyId),
+      ]).then(function(combinedData) {
+        var explorationData = combinedData[0];
+        var pretestQuestionsData = combinedData[1];
+        if (pretestQuestionsData.length > 0) {
+          setPretestMode();
+          initializeExplorationServices(explorationData, true, callback);
+          initializePretestServices(pretestQuestionsData, callback);
+        } else {
+          setExplorationMode();
+          initializeExplorationServices(explorationData, false, callback);
+        }
+      });
+    };
+
+    return {
+      initializePlayer: function(callback) {
+        PlayerTranscriptService.init();
+        if (editorPreviewMode) {
+          initExplorationPreviewPlayer(callback);
+        } else {
+          initExplorationPlayer(callback);
+        }
+      },
+      getCurrentEngineService: function() {
+        return currentEngineService;
+      },
+      isInPretestMode: function() {
+        return inPretestMode;
+      },
+      getPretestQuestionCount: function() {
+        return PretestEngineService.getPretestQuestionCount();
+      },
+      moveToExploration: function(callback) {
+        setExplorationMode();
+        ExplorationEngineService.moveToExploration(callback);
+      },
+      getLanguageCode: function() {
+        return currentEngineService.getLanguageCode();
+      },
+      recordNewCardAdded: function() {
+        return currentEngineService.recordNewCardAdded();
+      },
+    };
+  }]);

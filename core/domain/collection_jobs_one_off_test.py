@@ -15,6 +15,7 @@
 # limitations under the License.
 
 """Tests for Collection-related one-off jobs."""
+import ast
 
 from core.domain import collection_domain
 from core.domain import collection_jobs_one_off
@@ -26,10 +27,9 @@ import feconf
 
 (job_models, collection_models,) = models.Registry.import_models([
     models.NAMES.job, models.NAMES.collection])
-search_services = models.Registry.import_search_services()
 
 
-class CollectionMigrationJobTest(test_utils.GenericTestBase):
+class CollectionMigrationOneOffJobTests(test_utils.GenericTestBase):
 
     ALBERT_EMAIL = 'albert@example.com'
     ALBERT_NAME = 'albert'
@@ -38,7 +38,7 @@ class CollectionMigrationJobTest(test_utils.GenericTestBase):
     EXP_ID = 'exp_id'
 
     def setUp(self):
-        super(CollectionMigrationJobTest, self).setUp()
+        super(CollectionMigrationOneOffJobTests, self).setUp()
 
         # Setup user who will own the test collections.
         self.albert_id = self.get_user_id_from_email(self.ALBERT_EMAIL)
@@ -49,10 +49,11 @@ class CollectionMigrationJobTest(test_utils.GenericTestBase):
         """Tests that the collection migration job does not convert an
         collection that is already the latest collection content schema version.
         """
-        # Create a new, collection that should not be affected by the
+        # Create a new collection that should not be affected by the
         # job.
         collection = collection_domain.Collection.create_default_collection(
-            self.COLLECTION_ID, 'A title', 'A Category', 'An Objective')
+            self.COLLECTION_ID, title='A title',
+            category='A Category', objective='An Objective')
         collection_services.save_new_collection(self.albert_id, collection)
         self.assertEqual(
             collection.schema_version,
@@ -61,8 +62,8 @@ class CollectionMigrationJobTest(test_utils.GenericTestBase):
 
         # Start migration job.
         job_id = (
-            collection_jobs_one_off.CollectionMigrationJob.create_new())
-        collection_jobs_one_off.CollectionMigrationJob.enqueue(job_id)
+            collection_jobs_one_off.CollectionMigrationOneOffJob.create_new())
+        collection_jobs_one_off.CollectionMigrationOneOffJob.enqueue(job_id)
         self.process_and_flush_pending_tasks()
 
         # Verify the collection is exactly the same after migration.
@@ -74,12 +75,18 @@ class CollectionMigrationJobTest(test_utils.GenericTestBase):
         after_converted_yaml = updated_collection.to_yaml()
         self.assertEqual(after_converted_yaml, yaml_before_migration)
 
+        output = collection_jobs_one_off.CollectionMigrationOneOffJob.get_output(job_id) # pylint: disable=line-too-long
+        expected = [[u'collection_migrated',
+                     [u'1 collections successfully migrated.']]]
+        self.assertEqual(expected, [ast.literal_eval(x) for x in output])
+
     def test_migration_job_skips_deleted_collection(self):
         """Tests that the collection migration job skips deleted collection
         and does not attempt to migrate.
         """
         collection = collection_domain.Collection.create_default_collection(
-            self.COLLECTION_ID, 'A title', 'A Category', 'An Objective')
+            self.COLLECTION_ID, title='A title',
+            category='A Category', objective='An Objective')
         collection_services.save_new_collection(self.albert_id, collection)
 
         # Note: This creates a summary based on the upgraded model (which is
@@ -97,8 +104,8 @@ class CollectionMigrationJobTest(test_utils.GenericTestBase):
 
         # Start migration job on sample collection.
         job_id = (
-            collection_jobs_one_off.CollectionMigrationJob.create_new())
-        collection_jobs_one_off.CollectionMigrationJob.enqueue(job_id)
+            collection_jobs_one_off.CollectionMigrationOneOffJob.create_new())
+        collection_jobs_one_off.CollectionMigrationOneOffJob.enqueue(job_id)
 
         # This running without errors indicates the deleted collection is
         # being ignored.
@@ -107,6 +114,11 @@ class CollectionMigrationJobTest(test_utils.GenericTestBase):
         # Ensure the exploration is still deleted.
         with self.assertRaisesRegexp(Exception, 'Entity .* not found'):
             collection_services.get_collection_by_id(self.COLLECTION_ID)
+
+        output = collection_jobs_one_off.CollectionMigrationOneOffJob.get_output(job_id) # pylint: disable=line-too-long
+        expected = [[u'collection_deleted',
+                     [u'Encountered 1 deleted collections.']]]
+        self.assertEqual(expected, [ast.literal_eval(x) for x in output])
 
     def test_migrate_colections_failing_strict_validation(self):
         """Tests that the collection migration job migrates collections which
@@ -140,13 +152,13 @@ class CollectionMigrationJobTest(test_utils.GenericTestBase):
 
         # Start migration job on sample collection.
         job_id = (
-            collection_jobs_one_off.CollectionMigrationJob.create_new())
-        collection_jobs_one_off.CollectionMigrationJob.enqueue(job_id)
+            collection_jobs_one_off.CollectionMigrationOneOffJob.create_new())
+        collection_jobs_one_off.CollectionMigrationOneOffJob.enqueue(job_id)
 
         # This running without errors indicates the collection is migrated.
         self.process_and_flush_pending_tasks()
 
-        # Check the version number of the new model
+        # Check the version number of the new model.
         new_model = collection_models.CollectionModel.get(self.COLLECTION_ID)
         self.assertEqual(
             new_model.schema_version, feconf.CURRENT_COLLECTION_SCHEMA_VERSION)
@@ -192,19 +204,17 @@ class CollectionMigrationJobTest(test_utils.GenericTestBase):
             model, self.albert_id)
         collection_services.save_collection_summary(collection_summary)
 
-        # Check that collection_contents is empty
+        # Check that collection_contents is empty.
         self.assertEqual(model.collection_contents, {})
 
         # Run the job. This should populate collection_contents.
         job_id = (
-            collection_jobs_one_off.CollectionMigrationJob.create_new())
-        collection_jobs_one_off.CollectionMigrationJob.enqueue(job_id)
+            collection_jobs_one_off.CollectionMigrationOneOffJob.create_new())
+        collection_jobs_one_off.CollectionMigrationOneOffJob.enqueue(job_id)
         self.process_and_flush_pending_tasks()
 
         new_model = collection_models.CollectionModel.get(self.COLLECTION_ID)
         self.assertEqual(
             new_model.collection_contents, {
-                'nodes': [node.to_dict()],
-                'skills': {},
-                'next_skill_index': 0
+                'nodes': [node.to_dict()]
             })

@@ -27,24 +27,29 @@
 // The state-name argument is optional. If it is not provided, the feedback is
 // assumed to apply to the exploration as a whole.
 oppia.directive('feedbackPopup', [
-  'ExplorationPlayerService', 'UrlInterpolationService',
-  function(ExplorationPlayerService, UrlInterpolationService) {
+  'ExplorationEngineService', 'UrlInterpolationService',
+  function(ExplorationEngineService, UrlInterpolationService) {
     return {
       restrict: 'E',
       scope: {},
       templateUrl: UrlInterpolationService.getDirectiveTemplateUrl(
         '/pages/exploration_player/feedback_popup_directive.html'),
       controller: [
-        '$scope', '$element', '$http', '$timeout', 'FocusManagerService',
-        'AlertsService', 'BackgroundMaskService', 'PlayerPositionService',
-        'WindowDimensionsService',
+        '$scope', '$element', '$filter', '$http', '$log', '$timeout',
+        'AlertsService', 'BackgroundMaskService', 'FocusManagerService',
+        'PlayerPositionService', 'UserService', 'WindowDimensionsService',
+        'FEEDBACK_SUBJECT_MAX_CHAR_LIMIT',
         function(
-            $scope, $element, $http, $timeout, FocusManagerService,
-            AlertsService, BackgroundMaskService, PlayerPositionService,
-            WindowDimensionsService) {
+            $scope, $element, $filter, $http, $log, $timeout,
+            AlertsService, BackgroundMaskService, FocusManagerService,
+            PlayerPositionService, UserService, WindowDimensionsService,
+            FEEDBACK_SUBJECT_MAX_CHAR_LIMIT) {
           $scope.feedbackText = '';
           $scope.isSubmitterAnonymized = false;
-          $scope.isLoggedIn = ExplorationPlayerService.isLoggedIn();
+          $scope.isLoggedIn = null;
+          UserService.getUserInfoAsync().then(function(userInfo) {
+            $scope.isLoggedIn = userInfo.isLoggedIn();
+          });
           $scope.feedbackSubmitted = false;
           // We generate a random id since there may be multiple popover
           // elements on the same page.
@@ -59,7 +64,7 @@ oppia.directive('feedbackPopup', [
 
           var feedbackUrl = (
             '/explorehandler/give_feedback/' +
-            ExplorationPlayerService.getExplorationId());
+            ExplorationEngineService.getExplorationId());
 
           var getTriggerElt = function() {
             // Find the popover trigger node (the one with a popover-template
@@ -77,7 +82,7 @@ oppia.directive('feedbackPopup', [
             for (var i = 0; i < 10; i++) {
               elt = elt.parent();
               if (!angular.isUndefined(
-                    elt.attr('uib-popover-template-popup'))) {
+                elt.attr('uib-popover-template-popup'))) {
                 popoverChildElt = elt;
                 break;
               }
@@ -109,7 +114,8 @@ oppia.directive('feedbackPopup', [
           $scope.saveFeedback = function() {
             if ($scope.feedbackText) {
               $http.post(feedbackUrl, {
-                subject: '(Feedback from a learner)',
+                subject: $filter('getAbbreviatedText')(
+                  $scope.feedbackText, FEEDBACK_SUBJECT_MAX_CHAR_LIMIT),
                 feedback: $scope.feedbackText,
                 include_author: (
                   !$scope.isSubmitterAnonymized && $scope.isLoggedIn),

@@ -16,6 +16,7 @@
 
 import datetime
 import logging
+import re
 
 from core.domain import classifier_domain
 from core.platform import models
@@ -92,8 +93,7 @@ def handle_trainable_states(exploration, state_names):
         job_exploration_mappings)
 
 
-def handle_non_retrainable_states(exploration, state_names,
-                                  new_to_old_state_names):
+def handle_non_retrainable_states(exploration, state_names, exp_versions_diff):
     """Creates new TrainingJobExplorationMappingModel instances for all the
     state names passed into the function. The mapping is created from the
     state in the new version of the exploration to the ClassifierTrainingJob of
@@ -109,8 +109,8 @@ def handle_non_retrainable_states(exploration, state_names,
     Args:
         exploration: Exploration. The Exploration domain object.
         state_names: list(str). List of state names.
-        new_to_old_state_names: dict. Dict mapping new state names to their
-            corresponding state names in previous version.
+        exp_versions_diff: ExplorationVersionsDiff. An instance of the
+            exploration versions diff class.
 
     Raises:
         Exception. This method should not be called by exploration with version
@@ -126,7 +126,10 @@ def handle_non_retrainable_states(exploration, state_names,
 
     state_names_to_retrieve = []
     for current_state_name in state_names:
-        old_state_name = new_to_old_state_names[current_state_name]
+        old_state_name = current_state_name
+        if current_state_name in exp_versions_diff.new_to_old_state_names:
+            old_state_name = exp_versions_diff.new_to_old_state_names[
+                current_state_name]
         state_names_to_retrieve.append(old_state_name)
     classifier_training_jobs = get_classifier_training_jobs(
         exp_id, old_exp_version, state_names_to_retrieve)
@@ -149,6 +152,55 @@ def handle_non_retrainable_states(exploration, state_names,
 
     classifier_models.TrainingJobExplorationMappingModel.create_multi(
         job_exploration_mappings)
+
+
+def convert_strings_to_float_numbers_in_classifier_data(
+        classifier_data_with_floats_stringified):
+    """Converts all floating point numbers in classifier data to string.
+
+    The following function iterates through entire classifier data and converts
+    all string values which are successfully matched by regex of floating point
+    numbers to corresponding float values.
+
+    Args:
+        classifier_data_with_floats_stringified: dict|list|string|int.
+            The original classifier data which needs conversion of floats from
+            strings to floats.
+
+    Raises:
+        Exception. If classifier data contains an object whose type is other
+            than integer, string, dict or list.
+
+    Returns:
+        dict|list|string|int|float. Original classifier data dict with
+            float values converted back from string to float.
+    """
+    if isinstance(classifier_data_with_floats_stringified, dict):
+        classifier_data = {}
+        for k in classifier_data_with_floats_stringified:
+            classifier_data[k] = (
+                convert_strings_to_float_numbers_in_classifier_data(
+                    classifier_data_with_floats_stringified[k]))
+        return classifier_data
+    elif isinstance(classifier_data_with_floats_stringified, list):
+        classifier_data = []
+        for item in classifier_data_with_floats_stringified:
+            classifier_data.append(
+                convert_strings_to_float_numbers_in_classifier_data(item))
+        return classifier_data
+    elif isinstance(classifier_data_with_floats_stringified, basestring):
+        if re.match(
+                feconf.FLOAT_VERIFIER_REGEX,
+                classifier_data_with_floats_stringified):
+            return float(classifier_data_with_floats_stringified)
+        return classifier_data_with_floats_stringified
+    elif isinstance(classifier_data_with_floats_stringified, int):
+        return classifier_data_with_floats_stringified
+    else:
+        raise Exception(
+            'Expected all classifier data objects to be lists, dicts, '
+            'strings, integers but received %s.' % type(
+                classifier_data_with_floats_stringified))
 
 
 def get_classifier_training_job_from_model(classifier_training_job_model):
@@ -198,43 +250,11 @@ def get_classifier_training_job_by_id(job_id):
     return classifier_training_job
 
 
-def create_classifier_training_job(algorithm_id, interaction_id, exp_id,
-                                   exp_version, state_name, training_data,
-                                   status):
-    """Creates a ClassifierTrainingJobModel in data store.
-
-    Args:
-        algorithm_id: str. ID of the algorithm used to generate the model.
-        interaction_id: str. ID of the interaction to which the algorithm
-            belongs.
-        exp_id: str. ID of the exploration.
-        exp_version: int. The exploration version at the time
-            this training job was created.
-        state_name: str. The name of the state to which the classifier
-            belongs.
-        training_data: dict. The data used in training phase.
-        status: str. The status of the training job (
-            feconf.TRAINING_JOB_STATUS_NEW by default).
-
-    Returns:
-        job_id: str. ID of the classifier training job.
-    """
-    next_scheduled_check_time = datetime.datetime.utcnow()
-    dummy_classifier_training_job = classifier_domain.ClassifierTrainingJob(
-        'job_id_dummy', algorithm_id, interaction_id, exp_id, exp_version,
-        next_scheduled_check_time, state_name, status, training_data, None, 1)
-    dummy_classifier_training_job.validate()
-    job_id = classifier_models.ClassifierTrainingJobModel.create(
-        algorithm_id, interaction_id, exp_id, exp_version,
-        next_scheduled_check_time, training_data, state_name, status, None, 1)
-    return job_id
-
-
 def _update_classifier_training_jobs_status(job_ids, status):
     """Checks for the existence of the model and then updates it.
 
     Args:
-        job_id: list(str). list of ID of the ClassifierTrainingJob domain
+        job_ids: list(str). list of ID of the ClassifierTrainingJob domain
             objects.
         status: str. The status to which the job needs to be updated.
 
@@ -260,7 +280,6 @@ def _update_classifier_training_jobs_status(job_ids, status):
 
     classifier_models.ClassifierTrainingJobModel.put_multi(
         classifier_training_job_models)
-
 
 
 def mark_training_job_complete(job_id):

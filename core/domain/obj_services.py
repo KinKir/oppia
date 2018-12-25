@@ -34,7 +34,8 @@ class Registry(object):
         cls.objects_dict.clear()
 
         # Add new object instances to the registry.
-        for name, clazz in inspect.getmembers(objects, inspect.isclass):
+        for name, clazz in inspect.getmembers(
+                objects, predicate=inspect.isclass):
             if name.endswith('_test') or name == 'BaseObject':
                 continue
 
@@ -56,7 +57,8 @@ class Registry(object):
         """Gets an object class by its type. Types are CamelCased.
 
         Refreshes once if the class is not found; subsequently, throws an
-        error."""
+        error.
+        """
         if obj_type not in cls.objects_dict:
             cls._refresh_registry()
         if obj_type not in cls.objects_dict:

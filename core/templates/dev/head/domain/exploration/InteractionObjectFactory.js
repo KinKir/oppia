@@ -35,6 +35,41 @@ oppia.factory('InteractionObjectFactory', [
       this.solution = solution;
     };
 
+    Interaction.prototype.setId = function(newValue) {
+      this.id = newValue;
+    };
+
+    Interaction.prototype.setAnswerGroups = function(newValue) {
+      this.answerGroups = newValue;
+    };
+
+    Interaction.prototype.setDefaultOutcome = function(newValue) {
+      this.defaultOutcome = newValue;
+    };
+
+    Interaction.prototype.setCustomizationArgs = function(newValue) {
+      this.customizationArgs = newValue;
+    };
+
+    Interaction.prototype.setSolution = function(newValue) {
+      this.solution = newValue;
+    };
+
+    Interaction.prototype.setHints = function(newValue) {
+      this.hints = newValue;
+    };
+
+    Interaction.prototype.copy = function(otherInteraction) {
+      this.answerGroups = angular.copy(otherInteraction.answerGroups);
+      this.confirmedUnclassifiedAnswers =
+        angular.copy(otherInteraction.confirmedUnclassifiedAnswers);
+      this.customizationArgs = angular.copy(otherInteraction.customizationArgs);
+      this.defaultOutcome = angular.copy(otherInteraction.defaultOutcome);
+      this.hints = angular.copy(otherInteraction.hints);
+      this.id = angular.copy(otherInteraction.id);
+      this.solution = angular.copy(otherInteraction.solution);
+    };
+
     Interaction.prototype.toBackendDict = function() {
       return {
         answer_groups: this.answerGroups.map(function(answerGroup) {

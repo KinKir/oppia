@@ -14,19 +14,22 @@
 
 /**
  * @fileoverview Service which handles opening and closing
- * the training modal used for both unresolved answers
- * and answers within the training data of a classifier.
+ * the training modal used for unresolved answers.
  */
 
 oppia.factory('TrainingModalService', [
   '$rootScope', '$uibModal', 'AlertsService', 'UrlInterpolationService',
   function($rootScope, $uibModal, AlertsService, UrlInterpolationService) {
     return {
-      openTrainUnresolvedAnswerModal: function(unhandledAnswer, externalSave) {
+      /**
+      * Opens unresolved answer trainer modal for given answer.
+      * @param {Object} unhandledAnswer - The answer to be trained.
+      * @param {requestCallback} finishTrainingCallback - Function to call when
+          answer has been trained.
+      */
+      openTrainUnresolvedAnswerModal: function(
+          unhandledAnswer, finishTrainingCallback) {
         AlertsService.clearWarnings();
-        if (externalSave) {
-          $rootScope.$broadcast('externalSave');
-        }
         $uibModal.open({
           templateUrl: UrlInterpolationService.getDirectiveTemplateUrl(
             '/pages/exploration_editor/editor_tab/' +
@@ -34,37 +37,93 @@ oppia.factory('TrainingModalService', [
           backdrop: true,
           controller: [
             '$scope', '$injector', '$uibModalInstance',
-            'ExplorationStatesService', 'EditorStateService',
-            'AnswerClassificationService', 'ExplorationContextService',
-            'stateInteractionIdService', 'AngularNameService',
+            'ExplorationStatesService', 'StateEditorService',
+            'AnswerClassificationService', 'ContextService',
+            'StateInteractionIdService', 'AngularNameService',
+            'ResponsesService', 'TrainingDataService',
+            'StateContentIdsToAudioTranslationsService',
+            'AnswerGroupObjectFactory', 'GraphDataService',
+            'ExplorationWarningsService',
             function($scope, $injector, $uibModalInstance,
-                ExplorationStatesService, EditorStateService,
-                AnswerClassificationService, ExplorationContextService,
-                stateInteractionIdService, AngularNameService) {
+                ExplorationStatesService, StateEditorService,
+                AnswerClassificationService, ContextService,
+                StateInteractionIdService, AngularNameService,
+                ResponsesService, TrainingDataService,
+                StateContentIdsToAudioTranslationsService,
+                AnswerGroupObjectFactory, GraphDataService,
+                ExplorationWarningsService) {
               $scope.trainingDataAnswer = '';
-              $scope.trainingDataFeedback = '';
-              $scope.trainingDataOutcomeDest = '';
 
-              // See the training panel directive in StateEditor for an
+              // See the training panel directive in ExplorationEditorTab for an
               // explanation on the structure of this object.
               $scope.classification = {
                 answerGroupIndex: 0,
                 newOutcome: null
               };
+              $scope.addingNewResponse = false;
 
-              $scope.finishTraining = function() {
+              var _saveNewAnswerGroup = function(newAnswerGroup) {
+                var answerGroups = ResponsesService.getAnswerGroups();
+                var translationService = (
+                  StateContentIdsToAudioTranslationsService);
+                answerGroups.push(newAnswerGroup);
+                ResponsesService.save(
+                  answerGroups, ResponsesService.getDefaultOutcome(),
+                  function(newAnswerGroups, newDefaultOutcome) {
+                    ExplorationStatesService.saveInteractionAnswerGroups(
+                      StateEditorService.getActiveStateName(),
+                      angular.copy(newAnswerGroups));
+
+                    ExplorationStatesService.saveInteractionDefaultOutcome(
+                      StateEditorService.getActiveStateName(),
+                      angular.copy(newDefaultOutcome));
+
+                    GraphDataService.recompute();
+                    ExplorationWarningsService.updateWarnings();
+                  });
+                translationService.displayed.addContentId(
+                  newAnswerGroup.outcome.feedback.getContentId());
+                translationService.saveDisplayedValue();
+                ExplorationStatesService.saveContentIdsToAudioTranslations(
+                  translationService.stateName,
+                  angular.copy(translationService.displayed));
+              };
+
+              $scope.exitTrainer = function() {
+                $uibModalInstance.dismiss();
+              };
+
+              $scope.onConfirm = function() {
+                var index = $scope.classification.answerGroupIndex;
+
+                if (index > ResponsesService.getAnswerGroupCount()) {
+                  var newOutcome = $scope.classification.newOutcome;
+                  var newAnswerGroup = AnswerGroupObjectFactory.createNew(
+                    [], angular.copy(newOutcome), [unhandledAnswer], null);
+                  _saveNewAnswerGroup(newAnswerGroup);
+                  TrainingDataService.associateWithAnswerGroup(
+                    ResponsesService.getAnswerGroupCount() - 1,
+                    unhandledAnswer);
+                } else if (index === ResponsesService.getAnswerGroupCount()) {
+                  TrainingDataService.associateWithDefaultResponse(
+                    unhandledAnswer);
+                } else {
+                  TrainingDataService.associateWithAnswerGroup(
+                    index, unhandledAnswer);
+                }
                 $uibModalInstance.close();
+                finishTrainingCallback();
               };
 
               $scope.init = function() {
                 var explorationId =
-                  ExplorationContextService.getExplorationId();
+                  ContextService.getExplorationId();
                 var currentStateName =
-                  EditorStateService.getActiveStateName();
+                  StateEditorService.getActiveStateName();
                 var state = ExplorationStatesService.getState(currentStateName);
 
                 // Retrieve the interaction ID.
-                var interactionId = stateInteractionIdService.savedMemento;
+                var interactionId = StateInteractionIdService.savedMemento;
 
                 var rulesServiceName =
                   AngularNameService.getNameOfInteractionRulesService(
@@ -75,7 +134,7 @@ oppia.factory('TrainingModalService', [
 
                 var classificationResult = (
                   AnswerClassificationService.getMatchingClassificationResult(
-                    explorationId, currentStateName, state, unhandledAnswer,
+                    currentStateName, state.interaction, unhandledAnswer,
                     rulesService));
                 var feedback = 'Nothing';
                 var dest = classificationResult.outcome.dest;
@@ -95,8 +154,6 @@ oppia.factory('TrainingModalService', [
                 // specific feedback of the outcome (for instance, it
                 // includes the destination state within the feedback).
                 $scope.trainingDataAnswer = unhandledAnswer;
-                $scope.trainingDataFeedback = feedback;
-                $scope.trainingDataOutcomeDest = dest;
                 $scope.classification.answerGroupIndex = (
                   classificationResult.answerGroupIndex);
               };
@@ -104,6 +161,8 @@ oppia.factory('TrainingModalService', [
               $scope.init();
             }]
         });
+        // Save the modified training data externally in state content.
+        $rootScope.$broadcast('externalSave');
       }
     };
   }

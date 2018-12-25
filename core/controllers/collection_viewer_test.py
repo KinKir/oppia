@@ -21,7 +21,7 @@ from core.tests import test_utils
 import feconf
 
 
-class CollectionViewerPermissionsTest(test_utils.GenericTestBase):
+class CollectionViewerPermissionsTests(test_utils.GenericTestBase):
     """Test permissions for learners to view collections."""
 
     COLLECTION_ID = 'cid'
@@ -29,7 +29,7 @@ class CollectionViewerPermissionsTest(test_utils.GenericTestBase):
 
     def setUp(self):
         """Before each individual test, create a dummy collection."""
-        super(CollectionViewerPermissionsTest, self).setUp()
+        super(CollectionViewerPermissionsTests, self).setUp()
 
         self.signup(self.EDITOR_EMAIL, self.EDITOR_USERNAME)
         self.editor_id = self.get_user_id_from_email(self.EDITOR_EMAIL)
@@ -135,7 +135,7 @@ class CollectionViewerControllerEndToEndTests(test_utils.GenericTestBase):
         self.assertEqual(len(collection_dict['nodes']), 4)
 
         playthrough_dict = collection_dict['playthrough_dict']
-        self.assertEqual(playthrough_dict['next_exploration_ids'], ['19'])
+        self.assertEqual(playthrough_dict['next_exploration_id'], '19')
         self.assertEqual(playthrough_dict['completed_exploration_ids'], [])
 
         # 'Complete' the first exploration. This should lead to 1 new one being
@@ -148,7 +148,7 @@ class CollectionViewerControllerEndToEndTests(test_utils.GenericTestBase):
 
         playthrough_dict = collection_dict['playthrough_dict']
         self.assertEqual(
-            playthrough_dict['next_exploration_ids'], ['20'])
+            playthrough_dict['next_exploration_id'], '20')
         self.assertEqual(playthrough_dict['completed_exploration_ids'], ['19'])
 
         # Completing the next exploration results in a third suggested exp.
@@ -160,7 +160,7 @@ class CollectionViewerControllerEndToEndTests(test_utils.GenericTestBase):
 
         playthrough_dict = collection_dict['playthrough_dict']
         self.assertEqual(
-            playthrough_dict['next_exploration_ids'], ['21'])
+            playthrough_dict['next_exploration_id'], '21')
         self.assertEqual(
             playthrough_dict['completed_exploration_ids'], ['19', '20'])
 
@@ -174,7 +174,7 @@ class CollectionViewerControllerEndToEndTests(test_utils.GenericTestBase):
 
         playthrough_dict = collection_dict['playthrough_dict']
         self.assertEqual(
-            playthrough_dict['next_exploration_ids'], ['0'])
+            playthrough_dict['next_exploration_id'], '0')
         self.assertEqual(
             playthrough_dict['completed_exploration_ids'], ['19', '20', '21'])
 
@@ -186,7 +186,7 @@ class CollectionViewerControllerEndToEndTests(test_utils.GenericTestBase):
         collection_dict = response_dict['collection']
 
         playthrough_dict = collection_dict['playthrough_dict']
-        self.assertEqual(playthrough_dict['next_exploration_ids'], [])
+        self.assertEqual(playthrough_dict['next_exploration_id'], None)
         self.assertEqual(
             playthrough_dict['completed_exploration_ids'],
             ['19', '20', '21', '0'])

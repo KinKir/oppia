@@ -18,13 +18,14 @@
 
 oppia.factory('RouterService', [
   '$rootScope', '$location', '$window', '$timeout', '$interval',
-  'ExplorationInitStateNameService', 'EditorStateService',
+  'ExplorationInitStateNameService', 'StateEditorService',
   'ExplorationStatesService',
   function(
       $rootScope, $location, $window, $timeout, $interval,
-      ExplorationInitStateNameService, EditorStateService,
+      ExplorationInitStateNameService, StateEditorService,
       ExplorationStatesService) {
     var MAIN_TAB = 'main';
+    var TRANSLATION_TAB = 'translation';
     var PREVIEW_TAB = 'preview';
     var SETTINGS_TAB = 'settings';
     var STATS_TAB = 'stats';
@@ -57,7 +58,10 @@ oppia.factory('RouterService', [
       // _savePendingChanges() is called by each of the navigateTo... functions
       $rootScope.$broadcast('externalSave');
 
-      if (newPath.indexOf('/preview/') === 0) {
+      if (newPath.indexOf('/translation') === 0) {
+        _tabs.active = TRANSLATION_TAB;
+        $rootScope.$broadcast('refreshTranslationTab');
+      } else if (newPath.indexOf('/preview/') === 0) {
         _tabs.active = PREVIEW_TAB;
         _doNavigationWithState(newPath, SLUG_PREVIEW);
       } else if (newPath === '/settings') {
@@ -92,7 +96,7 @@ oppia.factory('RouterService', [
         if (ExplorationStatesService.isInitialized()) {
           $interval.cancel(waitForStatesToLoad);
           if (ExplorationStatesService.hasState(putativeStateName)) {
-            EditorStateService.setActiveStateName(putativeStateName);
+            StateEditorService.setActiveStateName(putativeStateName);
             if (pathType === SLUG_GUI) {
               $rootScope.$broadcast('refreshStateEditor');
             }
@@ -133,10 +137,10 @@ oppia.factory('RouterService', [
         return;
       }
       if (newStateName) {
-        EditorStateService.setActiveStateName(newStateName);
+        StateEditorService.setActiveStateName(newStateName);
       }
       $location.path('/' + pathType + '/' +
-                     EditorStateService.getActiveStateName());
+                     StateEditorService.getActiveStateName());
       $window.scrollTo(0, 0);
     };
 
@@ -150,9 +154,9 @@ oppia.factory('RouterService', [
       isLocationSetToNonStateEditorTab: function() {
         var currentPath = $location.path();
         return (
-          currentPath === '/preview' || currentPath === '/stats' ||
-          currentPath === '/settings' || currentPath === '/history' ||
-          currentPath === '/feedback');
+          currentPath === '/translation' || currentPath === '/preview' ||
+          currentPath === '/stats' || currentPath === '/settings' ||
+          currentPath === '/history' || currentPath === '/feedback');
       },
       getCurrentStateFromLocationPath: function() {
         return _getCurrentStateFromLocationPath();
@@ -181,6 +185,10 @@ oppia.factory('RouterService', [
         } else {
           _actuallyNavigate(SLUG_GUI, stateName);
         }
+      },
+      navigateToTranslationTab: function() {
+        _savePendingChanges();
+        $location.path('/translation');
       },
       navigateToPreviewTab: function() {
         if (_tabs.active !== PREVIEW_TAB) {

@@ -27,22 +27,20 @@ import os
 import sys
 import unittest
 
-import feconf
-
 CURR_DIR = os.path.abspath(os.getcwd())
 OPPIA_TOOLS_DIR = os.path.join(CURR_DIR, '..', 'oppia_tools')
 THIRD_PARTY_DIR = os.path.join(CURR_DIR, 'third_party')
 
 DIRS_TO_ADD_TO_SYS_PATH = [
     os.path.join(
-        OPPIA_TOOLS_DIR, 'google_appengine_1.9.50', 'google_appengine'),
-    os.path.join(OPPIA_TOOLS_DIR, 'numpy-1.6.1'),
+        OPPIA_TOOLS_DIR, 'google_appengine_1.9.67', 'google_appengine'),
     os.path.join(OPPIA_TOOLS_DIR, 'webtest-1.4.2'),
     os.path.join(
-        OPPIA_TOOLS_DIR, 'google_appengine_1.9.50', 'google_appengine',
+        OPPIA_TOOLS_DIR, 'google_appengine_1.9.67', 'google_appengine',
         'lib', 'webob_0_9'),
     os.path.join(OPPIA_TOOLS_DIR, 'browsermob-proxy-0.7.1'),
     os.path.join(OPPIA_TOOLS_DIR, 'selenium-2.53.2'),
+    os.path.join(OPPIA_TOOLS_DIR, 'PIL-1.1.7'),
     CURR_DIR,
     os.path.join(THIRD_PARTY_DIR, 'bleach-1.2.2'),
     os.path.join(THIRD_PARTY_DIR, 'gae-cloud-storage-1.9.15.0'),
@@ -89,8 +87,6 @@ def main():
                 for subtest in _iterate(test):
                     yield subtest
 
-    feconf.PLATFORM = 'gae'
-
     for directory in DIRS_TO_ADD_TO_SYS_PATH:
         if not os.path.exists(os.path.dirname(directory)):
             raise Exception('Directory %s does not exist.' % directory)
@@ -100,7 +96,7 @@ def main():
     dev_appserver.fix_sys_path()
 
     parsed_args = _PARSER.parse_args()
-    suites = create_test_suites(parsed_args.test_target)
+    suites = create_test_suites(test_target=parsed_args.test_target)
 
     results = [unittest.TextTestRunner(verbosity=2).run(suite)
                for suite in suites]

@@ -28,20 +28,17 @@ oppia.directive('oppiaInteractiveCodeRepl', [
     return {
       restrict: 'E',
       scope: {
-        onSubmit: '&',
         getLastAnswer: '&lastAnswer',
-        // This should be called whenever the answer changes.
-        setAnswerValidity: '&'
       },
       templateUrl: UrlInterpolationService.getExtensionResourceUrl(
         '/interactions/CodeRepl/directives/' +
         'code_repl_interaction_directive.html'),
       controller: [
         '$scope', '$attrs', 'WindowDimensionsService',
-        'EVENT_PROGRESS_NAV_SUBMITTED',
+        'CurrentInteractionService',
         function(
             $scope, $attrs, WindowDimensionsService,
-            EVENT_PROGRESS_NAV_SUBMITTED) {
+            CurrentInteractionService) {
           $scope.interactionIsActive = ($scope.getLastAnswer() === null);
 
           $scope.$on(EVENT_NEW_CARD_AVAILABLE, function() {
@@ -59,12 +56,12 @@ oppia.directive('oppiaInteractiveCodeRepl', [
           // Make sure $scope.preCode ends with a newline:
           if ($scope.preCode.trim().length === 0) {
             $scope.preCode = '';
-          } else if (!$scope.preCode.slice(-1) === '\n') {
+          } else if ($scope.preCode.slice(-1) !== '\n') {
             $scope.preCode += '\n';
           }
 
           // Make sure $scope.placeholder ends with a newline.
-          if (!$scope.placeholder.slice(-1) === '\n') {
+          if ($scope.placeholder.slice(-1) !== '\n') {
             $scope.placeholder += '\n';
           }
 
@@ -83,7 +80,6 @@ oppia.directive('oppiaInteractiveCodeRepl', [
 
           $scope.initCodeEditor = function(editor) {
             editor.setValue($scope.code);
-
             // Options for the ui-codemirror display.
             editor.setOption('lineNumbers', true);
             editor.setOption('indentWithTabs', true);
@@ -150,9 +146,9 @@ oppia.directive('oppiaInteractiveCodeRepl', [
             });
           };
 
-          $scope.$on(EVENT_PROGRESS_NAV_SUBMITTED, function() {
+          var submitAnswer = function() {
             $scope.runAndSubmitCode($scope.code);
-          });
+          };
 
           $scope.runCode = function(codeInput, onFinishRunCallback) {
             $scope.code = codeInput;
@@ -189,7 +185,7 @@ oppia.directive('oppiaInteractiveCodeRepl', [
             var postCodeNumLines = $scope.postCode.split('\n').length;
             var fullCodeNumLines = $scope.code.split('\n').length;
             var userCodeNumLines = (
-                fullCodeNumLines - preCodeNumLines - postCodeNumLines);
+              fullCodeNumLines - preCodeNumLines - postCodeNumLines);
 
             // Mark pre- and post- code as uneditable, and give it some styling.
             var markOptions = {
@@ -232,28 +228,28 @@ oppia.directive('oppiaInteractiveCodeRepl', [
 
               for (var i = 0; i < postCodeNumLines; i++) {
                 editor.addLineClass(preCodeNumLines + userCodeNumLines + i,
-                'text', 'code-repl-noneditable-line');
+                  'text', 'code-repl-noneditable-line');
               }
             }
           };
 
           $scope.sendResponse = function(evaluation, err) {
-            $scope.onSubmit({
-              answer: {
-                // Replace tabs with 2 spaces.
-                // TODO(sll): Change the default Python indentation to 4 spaces.
-                code: $scope.code.replace(/\t/g, '  ') || '',
-                output: $scope.output,
-                evaluation: $scope.evaluation,
-                error: (err || '')
-              },
-              rulesService: codeReplRulesService
-            });
+            CurrentInteractionService.onSubmit({
+              // Replace tabs with 2 spaces.
+              // TODO(sll): Change the default Python indentation to 4 spaces.
+              code: $scope.code.replace(/\t/g, '  ') || '',
+              output: $scope.output,
+              evaluation: $scope.evaluation,
+              error: (err || '')
+            }, codeReplRulesService);
 
             // Without this, the error message displayed in the user-facing
             // console will sometimes not update.
             $scope.$apply();
           };
+
+          CurrentInteractionService.registerCurrentInteraction(
+            submitAnswer, null);
         }
       ]
     };

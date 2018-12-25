@@ -21,14 +21,13 @@ describe('Rating display directive', function() {
 
   beforeEach(module('directiveTemplates'));
   beforeEach(module('oppia', GLOBALS.TRANSLATOR_PROVIDER_FOR_TESTS));
-  beforeEach(inject(function($rootScope, $compile, $templateCache) {
+  beforeEach(inject(function($compile, $rootScope, $templateCache) {
     var templateHtml = $templateCache.get(
       '/core/templates/dev/head/components/rating_display_directive.html');
     $compile(templateHtml)($rootScope);
     $rootScope.$digest();
 
     outerScope = $rootScope.$new();
-
     var elem = angular.element(
       '<rating-display rating-value="5" is-editable="true">' +
       '</rating-display>');
@@ -36,7 +35,6 @@ describe('Rating display directive', function() {
     outerScope.$digest();
     ctrlScope = compiledElem[0].getControllerScope();
   }));
-
   it('should display the correct number of stars', function() {
     ctrlScope.ratingValue = 4.2;
     outerScope.$digest();

@@ -15,12 +15,11 @@
   }
   editor-navigation .oppia-exploration-open-threads-indicator {
     border-radius: 10%;
-    bottom: 10px;
-    height: 13px;
+    bottom: 5px;
+    height: 15px;
     position: absolute;
-    right: 5px;
+    right: 3px;
     text-align: center;
-    width: 16px;
   }
 </style>
 <ul class="nav navbar-nav oppia-navbar-nav pull-right ng-cloak" style="margin-left: 20px;">
@@ -48,6 +47,13 @@
     </ul>
   </li>
 
+  <li ng-if="userIsLoggedIn" id="tutorialTranslationTab" ng-class="{'active': getTabStatuses().active === 'translation'}">
+    <a href="#" uib-tooltip="Translation" tooltip-placement="bottom" ng-click="selectTranslationTab()"
+       class="oppia-editor-navbar-tab-anchor protractor-test-translation-tab">
+      <i class="material-icons">&#xE029;</i>
+    </a>
+  </li>
+
   <li ng-if="userIsLoggedIn" id="tutorialPreviewTab" ng-class="{'active': getTabStatuses().active === 'preview'}">
     <a href="#" uib-tooltip="Preview" tooltip-placement="bottom" ng-click="selectPreviewTab()"
        class="oppia-editor-navbar-tab-anchor protractor-test-preview-tab">
@@ -64,7 +70,7 @@
 
   <li ng-if="isLargeScreen && userIsLoggedIn" ng-class="{'active': getTabStatuses().active === 'stats'}">
     <a href="#" uib-tooltip="Statistics" tooltip-placement="bottom" ng-click="selectStatsTab()"
-       class="oppia-editor-navbar-tab-anchor">
+       class="oppia-editor-navbar-tab-anchor protractor-test-stats-tab">
       <i class="material-icons">&#xE24B;</i>
     </a>
   </li>
@@ -84,7 +90,7 @@
     </a>
     <div ng-show="getOpenThreadsCount()" class="oppia-exploration-open-threads-indicator oppia-exploration-open-threads-color">
       <span class="oppia-exploration-open-threads-count">
-        <[getOpenThreadsCount()]>
+        <[getOpenThreadsCount()]>&nbsp;open
       </span>
     </div>
   </li>
@@ -101,13 +107,13 @@
   </div>
 </ul>
 <style type="text/css">
-  .oppia-help-dropdown .uib-popover{
+  .oppia-help-dropdown .uib-popover {
     color: white;
     font-size: 14px;
     max-width: 200px;
     text-align: center;
   }
-  .oppia-help-dropdown .uib-popover.bottom > .arrow{
+  .oppia-help-dropdown .uib-popover.bottom > .arrow {
     border-bottom-color: #000;
   }
   .oppia-help-dropdown .uib-popover.bottom > .arrow:after {

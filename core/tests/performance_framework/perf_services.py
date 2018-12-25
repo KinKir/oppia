@@ -118,12 +118,13 @@ class SeleniumPerformanceDataFetcher(object):
         self._stop_driver(driver)
 
     def get_page_metrics_from_uncached_session(self, page_url):
-        """Returns a PageSessionMetrics domain object for a given page URL.
-        """
+        """Returns a PageSessionMetrics domain object for a given page URL."""
+
         server, proxy = self._setup_proxy_server()
         driver = self._setup_driver(proxy=proxy, use_proxy=True)
 
-        proxy.new_har(page_url, options={'captureHeaders': True})
+        proxy.new_har(
+            ref=page_url, options={'captureHeaders': True})
         driver.get(page_url)
 
         self._wait_until_page_load_is_finished()
@@ -151,7 +152,8 @@ class SeleniumPerformanceDataFetcher(object):
         self._wait_until_page_load_is_finished()
 
         # Start recording har data for the next page fetch.
-        proxy.new_har(page_url, options={'captureHeaders': True})
+        proxy.new_har(
+            ref=page_url, options={'captureHeaders': True})
         driver.get(page_url)
 
         self._wait_until_page_load_is_finished()
@@ -174,7 +176,7 @@ class SeleniumPerformanceDataFetcher(object):
         self._wait_until_page_load_is_finished()
 
         page_session_timings = (
-            driver.execute_script("return window.performance"))
+            driver.execute_script('return window.performance'))
 
         self._stop_driver(driver)
 
@@ -196,7 +198,7 @@ class SeleniumPerformanceDataFetcher(object):
         self._wait_until_page_load_is_finished()
 
         page_session_timings = (
-            driver.execute_script("return window.performance"))
+            driver.execute_script('return window.performance'))
 
         self._stop_driver(driver)
 
@@ -243,13 +245,13 @@ class SeleniumPerformanceDataFetcher(object):
             # background. This helps reduce noise when measuring network
             # performance. Also, disable prerendering by chrome which renders
             # a page in the background leading to wrong test results.
-            chrome_options.add_argument("--disable-background-networking")
-            chrome_options.add_argument("--prerender=disabled")
-            chrome_options.add_argument("--prerender-from-omnibox=disabled")
+            chrome_options.add_argument('--disable-background-networking')
+            chrome_options.add_argument('--prerender=disabled')
+            chrome_options.add_argument('--prerender-from-omnibox=disabled')
 
             if use_proxy:
                 proxy_url = urlparse.urlparse(proxy.proxy).path
-                proxy_argument = "--proxy-server={0}".format(proxy_url)
+                proxy_argument = '--proxy-server={0}'.format(proxy_url)
                 chrome_options.add_argument(proxy_argument)
 
             driver = webdriver.Chrome(
@@ -285,8 +287,8 @@ class SeleniumPerformanceDataFetcher(object):
         self._wait_until_page_load_is_finished()
         resulting_url = driver.current_url
 
-        if resulting_url == '%s%s' % (self.BASE_URL,
-                                      feconf.CREATOR_DASHBOARD_URL):
+        if resulting_url == '%s%s' % (
+                self.BASE_URL, feconf.CREATOR_DASHBOARD_URL):
             return False
 
         return True
@@ -320,7 +322,8 @@ class SeleniumPerformanceDataFetcher(object):
         driver.find_element_by_css_selector(
             '.protractor-test-reload-all-explorations-button').click()
         driver.switch_to.alert.accept()
-        self._wait_until_page_load_is_finished(20)
+        self._wait_until_page_load_is_finished(
+            time_duration_secs=20)
 
     def _reload_first_exploration(self, driver):
         driver.get(self.BASE_URL + feconf.ADMIN_URL)
@@ -336,13 +339,15 @@ class SeleniumPerformanceDataFetcher(object):
         driver.find_element_by_css_selector(
             '.protractor-test-reload-collection-button').click()
         driver.switch_to.alert.accept()
-        self._wait_until_page_load_is_finished(5)
+        self._wait_until_page_load_is_finished(
+            time_duration_secs=5)
 
     def _create_exploration(self, driver):
         driver.get(self.BASE_URL + feconf.CREATOR_DASHBOARD_URL)
         driver.find_element_by_css_selector(
             '.protractor-test-create-activity').click()
-        self._wait_until_page_load_is_finished(1)
+        self._wait_until_page_load_is_finished(
+            time_duration_secs=1)
         driver.find_element_by_css_selector(
             '.protractor-test-create-exploration').click()
         self._wait_until_page_load_is_finished()

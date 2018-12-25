@@ -24,12 +24,12 @@ describe('Solution Validity Service', function() {
 
     var scope, svs;
 
-    beforeEach(inject(function($rootScope, $controller, $injector) {
+    beforeEach(inject(function($injector, $rootScope) {
       scope = $rootScope.$new();
       svs = $injector.get('SolutionValidityService');
 
       it('should store validity of the solution correctly',
-        function () {
+        function() {
           // Initialize SolutionValidityService.
           svs.init();
 

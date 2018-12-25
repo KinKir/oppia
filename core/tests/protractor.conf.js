@@ -57,57 +57,71 @@ exports.config = {
   // When run without a command line parameter, all suites will run. If run
   // with --suite=smoke, only the patterns matched by that suite will run.
   suites: {
+    // The tests on Travis are run individually to parallelize
+    // them. Therefore, we mention the complete directory
+    // in 'full'.
     full: [
-      'protractor/*.js'
+      'protractor/*.js',
+      'protractor_desktop/*.js'
     ],
 
-    mainEditor: [
-      'protractor/editorAndPlayer.js',
-      'protractor/stateEditor.js',
-      'protractor/explorationFeedback.js'
+    // Unfortunately, adding more than one file to a test suite results in
+    // severe instability as of Chromedriver 2.38 (Chrome 66).
+    accessibility: [
+      'protractor/accessibility.js'
+    ],
+
+    collections: [
+      'protractor_desktop/collections.js'
+    ],
+
+    editorAndPlayer: [
+      'protractor_desktop/editorAndPlayer.js',
     ],
 
     editorFeatures: [
-      'protractor/historyTab.js',
-      'protractor/parameters.js',
-      'protractor/hintsAndSolutions.js'
-    ],
-
-    extensions: [
-      'protractor/richTextComponents.js',
-      'protractor/interactions.js'
-    ],
-
-    library: [
-      'protractor/explorationRating.js',
-      'protractor/privileges.js',
-      'protractor/libraryPagesTour.js',
-      'protractor/publicationAndLibrary.js'
-    ],
-
-    learnerDashboard: [
-      'protractor/learnerDashboard.js',
-    ],
-
-    users: [
-      'protractor/userManagement.js',
-      'protractor/loginFlow.js',
-      'protractor/subscriptions.js',
-      'protractor/preferences.js'
-    ],
-
-    misc: [
-      'protractor/suggestions.js',
-      'protractor/cacheSlugs.js',
-      'protractor/staticPagesTour.js',
-      'protractor/collections.js',
-      'protractor/accessibility.js',
-      'protractor/i18n.js'
+      'protractor_desktop/editorFeatures.js'
     ],
 
     embedding: [
-      'protractor/embedding.js'
-    ]
+      'protractor_desktop/embedding.js'
+    ],
+
+    extensions: [
+      'protractor_desktop/extensions.js'
+    ],
+
+    learnerDashboardSubscriptionsAndFeedbackThreads: [
+      'protractor_desktop/learnerDashboardSubscriptionsAndFeedbackThreads.js'
+    ],
+
+    learner: [
+      'protractor/learnerFlow.js'
+    ],
+
+    library: [
+      'protractor/libraryFlow.js'
+    ],
+
+    profileMenu: [
+      'protractor/profileMenuFlow.js'
+    ],
+
+    publication: [
+      'protractor_desktop/publicationAndLibrary.js'
+    ],
+
+    stateEditor: [
+      'protractor_desktop/stateEditor.js',
+    ],
+
+    subscriptions: [
+      'protractor/subscriptionsFlow.js'
+    ],
+
+    users: [
+      'protractor_desktop/userJourneys.js',
+    ],
   },
 
   // ----- Capabilities to be passed to the webdriver instance ----
@@ -119,11 +133,11 @@ exports.config = {
   capabilities: {
     browserName: 'chrome',
     chromeOptions: {
-      args: ['lang=en-EN'],
-      prefs: {
-        intl: {
-          accept_languages: 'en-EN'
-        }
+      args: ['--lang=en-EN', '--window-size=1285x1000']
+    },
+    prefs: {
+      intl: {
+        accept_languages: 'en-EN'
       }
     },
     loggingPrefs: {
@@ -152,6 +166,7 @@ exports.config = {
   // You can specify a file containing code to run by setting onPrepare to
   // the filename string.
   onPrepare: function() {
+    browser.isMobile = false;
     // At this point, global 'protractor' object will be set up, and jasmine
     // will be available. For example, you can add a Jasmine reporter with:
     //     jasmine.getEnv().addReporter(new jasmine.JUnitXmlReporter(

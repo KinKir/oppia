@@ -25,15 +25,11 @@ oppia.constant(
   'ADMIN_TOPICS_CSV_DOWNLOAD_HANDLER_URL', '/admintopicscsvdownloadhandler');
 
 oppia.controller('Admin', [
-  '$scope', '$http', '$window', 'AdminRouterService',
-  function($scope, $http, $window, AdminRouterService) {
-    $scope.username = GLOBALS.USERNAME;
+  '$scope', '$http', '$location', 'AdminRouterService', 'DEV_MODE',
+  function($scope, $http, $location, AdminRouterService, DEV_MODE) {
     $scope.userEmail = GLOBALS.USER_EMAIL;
-    $scope.profilePictureDataUrl = GLOBALS.PROFILE_PICTURE_DATA_URL;
-    $scope.isModerator = GLOBALS.IS_MODERATOR;
-    $scope.isSuperAdmin = GLOBALS.IS_SUPER_ADMIN;
     $scope.logoutUrl = GLOBALS.LOGOUT_URL;
-    $scope.inDevMode = GLOBALS.DEV_MODE;
+    $scope.inDevMode = DEV_MODE;
 
     $scope.statusMessage = '';
     $scope.isActivitiesTabOpen = AdminRouterService.isActivitiesTabOpen;
@@ -46,8 +42,8 @@ oppia.controller('Admin', [
       $scope.statusMessage = statusMessage;
     };
 
-    $scope.$watch(function() {
-      return $window.location.hash;
-    }, AdminRouterService.showTab);
+    $scope.$on('$locationChangeSuccess', function() {
+      AdminRouterService.showTab($location.path().replace('/', '#'));
+    });
   }
 ]);

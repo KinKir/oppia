@@ -46,17 +46,18 @@ describe('Solution Verification Service', function() {
       autosaveChangeList: function() {}
     };
     module(function($provide) {
-      $provide.value('ExplorationDataService', mockExplorationData);
+      $provide.value('ExplorationDataService', [mockExplorationData][0]);
     });
     spyOn(mockExplorationData, 'autosaveChangeList');
   });
 
-  beforeEach(inject(function($rootScope, $controller, $injector) {
+  beforeEach(inject(function($injector) {
     ess = $injector.get('ExplorationStatesService');
-    siis = $injector.get('stateInteractionIdService');
-    scas = $injector.get('stateCustomizationArgsService');
+    siis = $injector.get('StateInteractionIdService');
+    scas = $injector.get('StateCustomizationArgsService');
     idc = $injector.get('InteractionDetailsCacheService');
     sof = $injector.get('SolutionObjectFactory');
+    see = $injector.get('StateEditorService');
     svs = $injector.get('SolutionVerificationService');
     IS = $injector.get('INTERACTION_SPECS');
     rootScope = $injector.get('$rootScope');
@@ -64,8 +65,15 @@ describe('Solution Verification Service', function() {
     ess.init({
       'First State': {
         content: {
-          html: 'First State Content',
-          audio_translations: {}
+          content_id: 'content',
+          html: 'First State Content'
+        },
+        content_ids_to_audio_translations: {
+          content: {},
+          default_outcome: {},
+          feedback_1: {},
+          hint_1: {},
+          hint_2: {}
         },
         interaction: {
           id: 'TextInput',
@@ -73,8 +81,8 @@ describe('Solution Verification Service', function() {
             outcome: {
               dest: 'End State',
               feedback: {
-                html: '',
-                audio_translations: {}
+                content_id: 'feedback_1',
+                html: ''
               },
               labelled_as_correct: false,
               param_changes: [],
@@ -88,25 +96,36 @@ describe('Solution Verification Service', function() {
           default_outcome: {
             dest: 'First State',
             feedback: {
-              html: '',
-              audio_translations: {}
+              content_id: 'default_outcome',
+              html: ''
             },
             labelled_as_correct: false,
             param_changes: [],
             refresher_exploration_id: null
           },
           hints: [{
-            hint_content: 'one'
+            hint_content: {
+              content_id: 'hint_1',
+              html: 'one'
+            }
           }, {
-            hint_content: 'two'
+            hint_content: {
+              content_id: 'hint_2',
+              html: 'two'
+            }
           }]
         },
         param_changes: []
       },
       'End State': {
         content: {
-          html: '',
-          audio_translations: {}
+          content_id: 'content',
+          html: ''
+        },
+        content_ids_to_audio_translations: {
+          content: {},
+          default_outcome: {},
+          feedback_1: {}
         },
         interaction: {
           id: 'TextInput',
@@ -115,8 +134,8 @@ describe('Solution Verification Service', function() {
             outcome: {
               dest: 'default',
               feedback: {
-                html: '',
-                audio_translations: {}
+                content_id: 'feedback_1',
+                html: ''
               },
               labelled_as_correct: false,
               param_changes: [],
@@ -126,8 +145,8 @@ describe('Solution Verification Service', function() {
           default_outcome: {
             dest: 'default',
             feedback: {
-              html: '',
-              audio_translations: {}
+              content_id: 'default_outcome',
+              html: ''
             },
             param_changes: []
           },
@@ -151,7 +170,15 @@ describe('Solution Verification Service', function() {
       ess.saveSolution('First State', sof.createNew(false, 'abc', 'nothing'));
 
       expect(
-        svs.verifySolution(0, state,
+        svs.verifySolution('First State', state.interaction,
+          ess.getState('First State').interaction.solution.correctAnswer)
+      ).toBe(true);
+
+      see.setInQuestionMode(true);
+      state.interaction.answerGroups[0].outcome.dest = 'First State';
+      state.interaction.answerGroups[0].outcome.labelledAsCorrect = true;
+      expect(
+        svs.verifySolution('First State', state.interaction,
           ess.getState('First State').interaction.solution.correctAnswer)
       ).toBe(true);
     });
@@ -170,7 +197,7 @@ describe('Solution Verification Service', function() {
       ess.saveSolution('First State', sof.createNew(false, 'xyz', 'nothing'));
 
       expect(
-        svs.verifySolution(0, state,
+        svs.verifySolution('First State', state.interaction,
           ess.getState('First State').interaction.solution.correctAnswer)
       ).toBe(false);
     });

@@ -21,34 +21,75 @@
  */
 
 oppia.directive('oppiaInteractiveImageClickInput', [
-  '$sce', 'HtmlEscaperService', 'ExplorationContextService',
+  '$sce', 'HtmlEscaperService', 'ContextService',
   'imageClickInputRulesService', 'UrlInterpolationService',
-  'EVENT_NEW_CARD_AVAILABLE', 'EDITOR_TAB_CONTEXT',
+  'ImagePreloaderService', 'AssetsBackendApiService',
+  'EXPLORATION_EDITOR_TAB_CONTEXT', 'EVENT_NEW_CARD_AVAILABLE',
+  'LOADING_INDICATOR_URL',
   function(
-      $sce, HtmlEscaperService, ExplorationContextService,
+      $sce, HtmlEscaperService, ContextService,
       imageClickInputRulesService, UrlInterpolationService,
-      EVENT_NEW_CARD_AVAILABLE, EDITOR_TAB_CONTEXT) {
+      ImagePreloaderService, AssetsBackendApiService,
+      EXPLORATION_EDITOR_TAB_CONTEXT, EVENT_NEW_CARD_AVAILABLE,
+      LOADING_INDICATOR_URL) {
     return {
       restrict: 'E',
       scope: {
-        onSubmit: '&',
         getLastAnswer: '&lastAnswer'
       },
       templateUrl: UrlInterpolationService.getExtensionResourceUrl(
         '/interactions/ImageClickInput/directives/' +
         'image_click_input_interaction_directive.html'),
       controller: [
-        '$scope', '$element', '$attrs', function($scope, $element, $attrs) {
+        '$scope', '$element', '$attrs', 'CurrentInteractionService',
+        function($scope, $element, $attrs, CurrentInteractionService) {
           var imageAndRegions = HtmlEscaperService.escapedJsonToObj(
             $attrs.imageAndRegionsWithValue);
           $scope.highlightRegionsOnHover =
             ($attrs.highlightRegionsOnHoverWithValue === 'true');
           $scope.filepath = imageAndRegions.imagePath;
-          $scope.imageUrl = (
-            $scope.filepath ?
-            $sce.trustAsResourceUrl(
-              '/imagehandler/' + ExplorationContextService.getExplorationId() +
-              '/' + encodeURIComponent($scope.filepath)) : null);
+          $scope.imageUrl = '';
+          $scope.loadingIndicatorUrl = UrlInterpolationService
+            .getStaticImageUrl(LOADING_INDICATOR_URL);
+          $scope.isLoadingIndicatorShown = false;
+          $scope.isTryAgainShown = false;
+
+          if (ImagePreloaderService.inExplorationPlayer()) {
+            $scope.isLoadingIndicatorShown = true;
+            $scope.dimensions = (
+              ImagePreloaderService.getDimensionsOfImage($scope.filepath));
+            // For aligning the gif to the center of it's container
+            var loadingIndicatorSize = (
+              ($scope.dimensions.height < 124) ? 24 : 120);
+            $scope.imageContainerStyle = {
+              height: $scope.dimensions.height + 'px'
+            };
+            $scope.loadingIndicatorStyle = {
+              height: loadingIndicatorSize + 'px',
+              width: loadingIndicatorSize + 'px'
+            };
+
+            $scope.loadImage = function() {
+              ImagePreloaderService.getImageUrl($scope.filepath)
+                .then(function(objectUrl) {
+                  $scope.isTryAgainShown = false;
+                  $scope.isLoadingIndicatorShown = false;
+                  $scope.imageUrl = objectUrl;
+                }, function() {
+                  $scope.isTryAgainShown = true;
+                  $scope.isLoadingIndicatorShown = false;
+                });
+            };
+            $scope.loadImage();
+          } else {
+            // This is the case when user is in exploration editor or in
+            // preview mode. We don't have loading indicator or try again for
+            // showing images in the exploration editor or in preview mode. So
+            // we directly assign the url to the imageUrl.
+            $scope.imageUrl = AssetsBackendApiService.getImageUrlForPreview(
+              ContextService.getExplorationId(), $scope.filepath);
+          }
+
           $scope.mouseX = 0;
           $scope.mouseY = 0;
           $scope.interactionIsActive = ($scope.getLastAnswer() === null);
@@ -71,7 +112,7 @@ oppia.directive('oppiaInteractiveImageClickInput', [
             }
           };
           if (!$scope.interactionIsActive) {
-            /*The following lines highlight the learner's last answer for this
+            /* The following lines highlight the learner's last answer for this
               card. This need only be done at the beginning as if he submits
               an answer, based on EVENT_NEW_CARD_AVAILABLE, the image is made
               inactive, so his last selection would be higlighted.*/
@@ -100,8 +141,8 @@ oppia.directive('oppiaInteractiveImageClickInput', [
             }
           };
           $scope.getDotDisplay = function() {
-            if (ExplorationContextService.getEditorTabContext() ===
-                EDITOR_TAB_CONTEXT.EDITOR) {
+            if (ContextService.getEditorTabContext() ===
+                EXPLORATION_EDITOR_TAB_CONTEXT.EDITOR) {
               return 'none';
             }
             return 'inline';
@@ -143,14 +184,15 @@ oppia.directive('oppiaInteractiveImageClickInput', [
             $scope.updateCurrentlyHoveredRegions();
           };
           $scope.onClickImage = function() {
-            $scope.onSubmit({
-              answer: {
-                clickPosition: [$scope.mouseX, $scope.mouseY],
-                clickedRegions: $scope.currentlyHoveredRegions
-              },
-              rulesService: imageClickInputRulesService
-            });
+            var answer = {
+              clickPosition: [$scope.mouseX, $scope.mouseY],
+              clickedRegions: $scope.currentlyHoveredRegions
+            };
+            CurrentInteractionService.onSubmit(
+              answer, imageClickInputRulesService);
           };
+
+          CurrentInteractionService.registerCurrentInteraction(null, null);
         }
       ]
     };
@@ -169,10 +211,9 @@ oppia.directive('oppiaResponseImageClickInput', [
         '$scope', '$attrs', 'HtmlEscaperService',
         function($scope, $attrs, HtmlEscaperService) {
           var _answer = HtmlEscaperService.escapedJsonToObj($attrs.answer);
-
           $scope.clickRegionLabel = '(Clicks on ' + (
             _answer.clickedRegions.length > 0 ?
-            '\'' + _answer.clickedRegions[0] + '\'' : 'image') + ')';
+              '\'' + _answer.clickedRegions[0] + '\'' : 'image') + ')';
         }
       ]
     };

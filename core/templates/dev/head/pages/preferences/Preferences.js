@@ -17,19 +17,51 @@
  */
 
 oppia.controller('Preferences', [
-  '$scope', '$http', '$rootScope', '$uibModal', '$timeout', '$translate',
-  'AlertsService', 'UrlInterpolationService', 'UtilsService',
+  '$scope', '$http', '$q', '$rootScope', '$uibModal', '$timeout', '$translate',
+  'AlertsService', 'UrlInterpolationService', 'UserService', 'UtilsService',
   'DASHBOARD_TYPE_CREATOR', 'DASHBOARD_TYPE_LEARNER',
+  'SUPPORTED_AUDIO_LANGUAGES', 'SUPPORTED_SITE_LANGUAGES',
   function(
-      $scope, $http, $rootScope, $uibModal, $timeout, $translate,
-      AlertsService, UrlInterpolationService, UtilsService,
-      DASHBOARD_TYPE_CREATOR, DASHBOARD_TYPE_LEARNER) {
+      $scope, $http, $q, $rootScope, $uibModal, $timeout, $translate,
+      AlertsService, UrlInterpolationService, UserService, UtilsService,
+      DASHBOARD_TYPE_CREATOR, DASHBOARD_TYPE_LEARNER,
+      SUPPORTED_AUDIO_LANGUAGES, SUPPORTED_SITE_LANGUAGES) {
     var _PREFERENCES_DATA_URL = '/preferenceshandler/data';
-    $rootScope.loadingMessage = 'Loading';
     $scope.profilePictureDataUrl = '';
     $scope.DASHBOARD_TYPE_CREATOR = DASHBOARD_TYPE_CREATOR;
     $scope.DASHBOARD_TYPE_LEARNER = DASHBOARD_TYPE_LEARNER;
-    $scope.username = GLOBALS.username;
+
+    $scope.username = '';
+    $rootScope.loadingMessage = 'Loading';
+    var userInfoPromise = UserService.getUserInfoAsync();
+    userInfoPromise.then(function(userInfo) {
+      $scope.username = userInfo.getUsername();
+    });
+
+    $scope.hasPageLoaded = false;
+    var preferencesPromise = $http.get(_PREFERENCES_DATA_URL);
+    preferencesPromise.then(function(response) {
+      var data = response.data;
+      $scope.userBio = data.user_bio;
+      $scope.subjectInterests = data.subject_interests;
+      $scope.preferredLanguageCodes = data.preferred_language_codes;
+      $scope.profilePictureDataUrl = data.profile_picture_data_url;
+      $scope.defaultDashboard = data.default_dashboard;
+      $scope.canReceiveEmailUpdates = data.can_receive_email_updates;
+      $scope.canReceiveEditorRoleEmail = data.can_receive_editor_role_email;
+      $scope.canReceiveSubscriptionEmail = data.can_receive_subscription_email;
+      $scope.canReceiveFeedbackMessageEmail = (
+        data.can_receive_feedback_message_email);
+      $scope.preferredSiteLanguageCode = data.preferred_site_language_code;
+      $scope.preferredAudioLanguageCode = data.preferred_audio_language_code;
+      $scope.subscriptionList = data.subscription_list;
+      $scope.hasPageLoaded = true;
+      _forceSelect2Refresh();
+    });
+
+    $q.all([userInfoPromise, preferencesPromise]).then(function() {
+      $rootScope.loadingMessage = '';
+    });
 
     $scope.getStaticImageUrl = UrlInterpolationService.getStaticImageUrl;
 
@@ -189,14 +221,12 @@ oppia.controller('Preferences', [
           }
         ]
       }).result.then(function(newProfilePictureDataUrl) {
-        $http.put(_PREFERENCES_DATA_URL, {
-          update_type: 'profile_picture_data_url',
-          data: newProfilePictureDataUrl
-        }).then(function() {
-          // The reload is needed in order to update the profile picture in the
-          // top-right corner.
-          location.reload();
-        });
+        UserService.setProfileImageDataUrlAsync(newProfilePictureDataUrl)
+          .then(function() {
+            // The reload is needed in order to update the profile picture in
+            // the top-right corner.
+            location.reload();
+          });
       });
     };
 
@@ -209,28 +239,14 @@ oppia.controller('Preferences', [
       }
     );
 
-    $scope.SITE_LANGUAGE_CHOICES = constants.SUPPORTED_SITE_LANGUAGES;
-    $scope.AUDIO_LANGUAGE_CHOICES = constants.SUPPORTED_AUDIO_LANGUAGES;
-
-    $scope.hasPageLoaded = false;
-    $http.get(_PREFERENCES_DATA_URL).then(function(response) {
-      var data = response.data;
-      $rootScope.loadingMessage = '';
-      $scope.userBio = data.user_bio;
-      $scope.subjectInterests = data.subject_interests;
-      $scope.preferredLanguageCodes = data.preferred_language_codes;
-      $scope.profilePictureDataUrl = data.profile_picture_data_url;
-      $scope.defaultDashboard = data.default_dashboard;
-      $scope.canReceiveEmailUpdates = data.can_receive_email_updates;
-      $scope.canReceiveEditorRoleEmail = data.can_receive_editor_role_email;
-      $scope.canReceiveSubscriptionEmail = data.can_receive_subscription_email;
-      $scope.canReceiveFeedbackMessageEmail = (
-        data.can_receive_feedback_message_email);
-      $scope.preferredSiteLanguageCode = data.preferred_site_language_code;
-      $scope.preferredAudioLanguageCode = data.preferred_audio_language_code;
-      $scope.subscriptionList = data.subscription_list;
-      $scope.hasPageLoaded = true;
-      _forceSelect2Refresh();
-    });
+    $scope.SITE_LANGUAGE_CHOICES = SUPPORTED_SITE_LANGUAGES;
+    $scope.AUDIO_LANGUAGE_CHOICES = SUPPORTED_AUDIO_LANGUAGES.map(
+      function(languageItem) {
+        return {
+          id: languageItem.id,
+          text: languageItem.description
+        };
+      }
+    );
   }
 ]);

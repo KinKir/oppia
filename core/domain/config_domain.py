@@ -61,43 +61,47 @@ UNICODE_SCHEMA = {
     'type': schema_utils.SCHEMA_TYPE_UNICODE
 }
 
+FLOAT_SCHEMA = {
+    'type': schema_utils.SCHEMA_TYPE_FLOAT
+}
+
 
 class ConfigProperty(object):
     """A property with a name and a default value.
 
     NOTE TO DEVELOPERS: These config properties are deprecated. Do not reuse
     these names:
-    - about_page_youtube_video_id
-    - admin_email_address
-    - admin_ids
-    - admin_usernames
-    - allow_yaml_file_upload
-    - banned_usernames
-    - banner_alt_text
-    - before_end_body_tag_hook
-    - carousel_slides_config
-    - collection_editor_whitelist
-    - contact_email_address
-    - contribute_gallery_page_announcement
-    - disabled_explorations
-    - editor_page_announcement
-    - editor_prerequisites_agreement
-    - embedded_google_group_url
-    - full_site_url
-    - moderator_ids
-    - moderator_request_forum_url
-    - moderator_usernames
-    - publicize_exploration_email_html_body
-    - sharing_options
-    - sharing_options_twitter_text
-    - sidebar_menu_additional_links
-    - site_forum_url
-    - social_media_buttons
-    - splash_page_exploration_id
-    - splash_page_exploration_version
-    - splash_page_youtube_video_id
-    - ssl_challenge_responses
-    - whitelisted_email_senders
+    - about_page_youtube_video_id.
+    - admin_email_address.
+    - admin_ids.
+    - admin_usernames.
+    - allow_yaml_file_upload.
+    - banned_usernames.
+    - banner_alt_text.
+    - before_end_body_tag_hook.
+    - carousel_slides_config.
+    - collection_editor_whitelist.
+    - contact_email_address.
+    - contribute_gallery_page_announcement.
+    - disabled_explorations.
+    - editor_page_announcement.
+    - editor_prerequisites_agreement.
+    - embedded_google_group_url.
+    - full_site_url.
+    - moderator_ids.
+    - moderator_request_forum_url.
+    - moderator_usernames.
+    - publicize_exploration_email_html_body.
+    - sharing_options.
+    - sharing_options_twitter_text.
+    - sidebar_menu_additional_links.
+    - site_forum_url.
+    - social_media_buttons.
+    - splash_page_exploration_id.
+    - splash_page_exploration_version.
+    - splash_page_youtube_video_id.
+    - ssl_challenge_responses.
+    - whitelisted_email_senders.
     """
 
     def refresh_default_value(self, default_value):
@@ -171,10 +175,11 @@ class ConfigProperty(object):
             model_instance = config_models.ConfigPropertyModel(
                 id=self.name)
         model_instance.value = value
-        model_instance.commit(committer_id, [{
-            'cmd': CMD_CHANGE_PROPERTY_VALUE,
-            'new_value': value
-        }])
+        model_instance.commit(
+            committer_id, [{
+                'cmd': CMD_CHANGE_PROPERTY_VALUE,
+                'new_value': value
+            }])
 
         # Set value in memcache.
         memcache_services.set_multi({
@@ -207,6 +212,7 @@ class Registry(object):
 
         Args:
             name: str. The name of the configuration property.
+            instance: *. The instance of the configuration property.
         """
         cls._config_registry[name] = instance
 
@@ -256,3 +262,15 @@ VMID_SHARED_SECRET_KEY_MAPPING = ConfigProperty(
         'vm_id': feconf.DEFAULT_VM_ID,
         'shared_secret_key': feconf.DEFAULT_VM_SHARED_SECRET
     }])
+
+WHITELISTED_EXPLORATION_IDS_FOR_PLAYTHROUGHS = ConfigProperty(
+    'whitelisted_exploration_ids_for_playthroughs',
+    SET_OF_STRINGS_SCHEMA,
+    'The set of exploration IDs for recording issues and playthroughs', [
+        'umPkwp0L1M0-', 'MjZzEVOG47_1', '9trAQhj6uUC2', 'rfX8jNkPnA-1',
+        '0FBWxCE5egOw', '670bU6d9JGBh', 'aHikhPlxYgOH', '-tMgcP1i_4au',
+        'zW39GLG_BdN2', 'Xa3B_io-2WI5', '6Q6IyIDkjpYC', 'osw1m5Q3jK41'])
+
+RECORD_PLAYTHROUGH_PROBABILITY = ConfigProperty(
+    'record_playthrough_probability', FLOAT_SCHEMA,
+    'The probability of recording playthroughs', 0.2)

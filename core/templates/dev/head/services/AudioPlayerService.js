@@ -18,30 +18,36 @@
 
 oppia.factory('AudioPlayerService', [
   '$q', '$timeout', 'ngAudio', 'AssetsBackendApiService',
-  'ExplorationContextService', 'AudioTranslationManagerService',
+  'ContextService', 'AudioTranslationManagerService',
   function(
       $q, $timeout, ngAudio, AssetsBackendApiService,
-      ExplorationContextService, AudioTranslationManagerService) {
+      ContextService, AudioTranslationManagerService) {
     var _currentTrackFilename = null;
     var _currentTrack = null;
+    var _currentTrackDuration = null;
 
     var _load = function(
         filename, successCallback, errorCallback) {
       if (filename !== _currentTrackFilename) {
         AssetsBackendApiService.loadAudio(
-        ExplorationContextService.getExplorationId(), filename)
+          ContextService.getExplorationId(), filename)
           .then(function(loadedAudiofile) {
             var blobUrl = URL.createObjectURL(loadedAudiofile.data);
             _currentTrack = ngAudio.load(blobUrl);
             _currentTrackFilename = filename;
 
             // ngAudio doesn't seem to provide any way of detecting
-            // when native audio object has finished loading. It seems
+            // when native audio object has finished loading -- see
+            // https://github.com/danielstern/ngAudio/issues/139. It seems
             // that after creating an ngAudio object, the native audio
             // object is asynchronously loaded. So we use a timeout
             // to grab native audio.
             // TODO(tjiang11): Look for a better way to handle this.
             $timeout(function() {
+              // _currentTrack could be null if the learner stops audio
+              // shortly after loading a new card or language. In such
+              // cases, we do not want to attempt setting the 'onended'
+              // property of the audio.
               if (_currentTrack !== null) {
                 _currentTrack.audio.onended = function() {
                   _currentTrack = null;
@@ -105,6 +111,20 @@ oppia.factory('AudioPlayerService', [
       },
       rewind: function(seconds) {
         _rewind(seconds);
+      },
+      getCurrentTime: function() {
+        if (_currentTrack) {
+          return Math.round(_currentTrack.currentTime);
+        } else {
+          return 0;
+        }
+      },
+      getAudioDuration: function() {
+        if (_currentTrack && _currentTrack.audio) {
+          return Math.round(_currentTrack.audio.duration);
+        } else {
+          return 0;
+        }
       },
       getProgress: function() {
         if (!_currentTrack) {

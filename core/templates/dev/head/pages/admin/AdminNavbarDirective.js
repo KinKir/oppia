@@ -25,19 +25,40 @@ oppia.directive('adminNavbar', [
     return {
       restrict: 'E',
       scope: {
-        getUsername: '&username',
         getUserEmail: '&userEmail',
-        getProfilePictureDataUrl: '&profilePictureDataUrl',
-        isModerator: '&isModerator',
-        isSuperAdmin: '&isSuperAdmin',
         getLogoutUrl: '&logoutUrl'
       },
       templateUrl: UrlInterpolationService.getDirectiveTemplateUrl(
         '/pages/admin/' +
         'admin_navbar_directive.html'),
-      controller: ['$scope', function($scope) {
+      controller: ['$scope', 'UserService', function($scope, UserService) {
         $scope.ADMIN_TAB_URLS = ADMIN_TAB_URLS;
         $scope.showTab = AdminRouterService.showTab;
+        $scope.isActivitiesTabOpen = AdminRouterService.isActivitiesTabOpen;
+        $scope.isJobsTabOpen = AdminRouterService.isJobsTabOpen;
+        $scope.isConfigTabOpen = AdminRouterService.isConfigTabOpen;
+        $scope.isRolesTabOpen = AdminRouterService.isRolesTabOpen;
+        $scope.isMiscTabOpen = AdminRouterService.isMiscTabOpen;
+
+        UserService.getProfileImageDataUrlAsync().then(function(dataUrl) {
+          $scope.profilePictureDataUrl = dataUrl;
+        });
+
+        $scope.username = '';
+        $scope.isModerator = null;
+        $scope.isSuperAdmin = null;
+        $scope.profileUrl = '';
+        UserService.getUserInfoAsync().then(function(userInfo) {
+          $scope.username = userInfo.getUsername();
+          $scope.isModerator = userInfo.isModerator();
+          $scope.isSuperAdmin = userInfo.isSuperAdmin();
+
+          $scope.profileUrl = (
+            UrlInterpolationService.interpolateUrl(PROFILE_URL_TEMPLATE, {
+              username: $scope.username
+            })
+          );
+        });
 
         $scope.logoWhiteImgUrl = UrlInterpolationService.getStaticImageUrl(
           '/logo/288x128_logo_white.png');
@@ -51,12 +72,6 @@ oppia.directive('adminNavbar', [
         $scope.onMouseoutProfilePictureOrDropdown = function(evt) {
           angular.element(evt.currentTarget).parent().removeClass('open');
           $scope.profileDropdownIsActive = false;
-        };
-
-        $scope.getProfileUrl = function() {
-          return UrlInterpolationService.interpolateUrl(PROFILE_URL_TEMPLATE, {
-            username: $scope.getUsername()
-          });
         };
       }]
     };

@@ -67,23 +67,25 @@ oppia.constant('FEEDBACK_THREADS_SORT_BY_KEYS_AND_I18N_IDS', {
 });
 
 oppia.controller('LearnerDashboard', [
-  '$scope', '$rootScope', '$window', '$http', '$uibModal', 'AlertsService',
-  'EXPLORATIONS_SORT_BY_KEYS_AND_I18N_IDS',
+  '$scope', '$rootScope', '$q', '$window', '$http', '$uibModal',
+  'AlertsService', 'EXPLORATIONS_SORT_BY_KEYS_AND_I18N_IDS',
   'SUBSCRIPTION_SORT_BY_KEYS_AND_I18N_IDS', 'FATAL_ERROR_CODES',
   'LearnerDashboardBackendApiService', 'UrlInterpolationService',
   'LEARNER_DASHBOARD_SECTION_I18N_IDS',
   'LEARNER_DASHBOARD_SUBSECTION_I18N_IDS', 'ThreadStatusDisplayService',
   'DateTimeFormatService', 'FEEDBACK_THREADS_SORT_BY_KEYS_AND_I18N_IDS',
   'FeedbackThreadSummaryObjectFactory', 'FeedbackMessageSummaryObjectFactory',
+  'UserService',
   function(
-      $scope, $rootScope, $window, $http, $uibModal, AlertsService,
-      EXPLORATIONS_SORT_BY_KEYS_AND_I18N_IDS,
+      $scope, $rootScope, $q, $window, $http, $uibModal,
+      AlertsService, EXPLORATIONS_SORT_BY_KEYS_AND_I18N_IDS,
       SUBSCRIPTION_SORT_BY_KEYS_AND_I18N_IDS, FATAL_ERROR_CODES,
       LearnerDashboardBackendApiService, UrlInterpolationService,
       LEARNER_DASHBOARD_SECTION_I18N_IDS,
       LEARNER_DASHBOARD_SUBSECTION_I18N_IDS, ThreadStatusDisplayService,
       DateTimeFormatService, FEEDBACK_THREADS_SORT_BY_KEYS_AND_I18N_IDS,
-      FeedbackThreadSummaryObjectFactory, FeedbackMessageSummaryObjectFactory) {
+      FeedbackThreadSummaryObjectFactory, FeedbackMessageSummaryObjectFactory,
+      UserService) {
     $scope.EXPLORATIONS_SORT_BY_KEYS_AND_I18N_IDS = (
       EXPLORATIONS_SORT_BY_KEYS_AND_I18N_IDS);
     $scope.SUBSCRIPTION_SORT_BY_KEYS_AND_I18N_IDS = (
@@ -97,8 +99,109 @@ oppia.controller('LearnerDashboard', [
     $scope.getStaticImageUrl = UrlInterpolationService.getStaticImageUrl;
     $scope.PAGE_SIZE = 8;
     $scope.Math = window.Math;
-    $scope.profilePictureDataUrl = GLOBALS.profilePictureDataUrl;
-    $scope.username = GLOBALS.username;
+    UserService.getProfileImageDataUrlAsync().then(function(dataUrl) {
+      $scope.profilePictureDataUrl = dataUrl;
+    });
+
+    $rootScope.loadingMessage = 'Loading';
+    $scope.username = '';
+    var userInfoPromise = UserService.getUserInfoAsync();
+    userInfoPromise.then(function(userInfo) {
+      $scope.username = userInfo.getUsername();
+    });
+
+    var dashboardDataPromise = (
+      LearnerDashboardBackendApiService.fetchLearnerDashboardData());
+    dashboardDataPromise.then(
+      function(response) {
+        var responseData = response.data;
+        $scope.isCurrentExpSortDescending = true;
+        $scope.isCurrentSubscriptionSortDescending = true;
+        $scope.isCurrentFeedbackSortDescending = true;
+        $scope.currentExpSortType = (
+          EXPLORATIONS_SORT_BY_KEYS_AND_I18N_IDS.LAST_PLAYED.key);
+        $scope.currentSubscribersSortType = (
+          SUBSCRIPTION_SORT_BY_KEYS_AND_I18N_IDS.USERNAME.key);
+        $scope.currentFeedbackThreadsSortType = (
+          FEEDBACK_THREADS_SORT_BY_KEYS_AND_I18N_IDS.LAST_UPDATED.key);
+        $scope.startIncompleteExpIndex = 0;
+        $scope.startCompletedExpIndex = 0;
+        $scope.startIncompleteCollectionIndex = 0;
+        $scope.startCompletedCollectionIndex = 0;
+        $scope.completedExplorationsList = (
+          responseData.completed_explorations_list
+        );
+        $scope.completedCollectionsList = (
+          responseData.completed_collections_list
+        );
+        $scope.incompleteExplorationsList = (
+          responseData.incomplete_explorations_list
+        );
+        $scope.incompleteCollectionsList = (
+          responseData.incomplete_collections_list
+        );
+        $scope.subscriptionsList = (
+          responseData.subscription_list
+        );
+        $scope.numberNonexistentIncompleteExplorations = (
+          responseData.number_of_nonexistent_activities.incomplete_explorations
+        );
+        $scope.numberNonexistentIncompleteCollections = (
+          responseData.number_of_nonexistent_activities.incomplete_collections
+        );
+        $scope.numberNonexistentCompletedExplorations = (
+          responseData.number_of_nonexistent_activities.completed_explorations
+        );
+        $scope.numberNonexistentCompletedCollections = (
+          responseData.number_of_nonexistent_activities.completed_collections
+        );
+        $scope.numberNonexistentExplorationsFromPlaylist = (
+          responseData.number_of_nonexistent_activities.exploration_playlist
+        );
+        $scope.numberNonexistentCollectionsFromPlaylist = (
+          responseData.number_of_nonexistent_activities.collection_playlist
+        );
+        $scope.completedToIncompleteCollections = (
+          responseData.completed_to_incomplete_collections
+        );
+        var threadSummaryDicts = responseData.thread_summaries;
+        $scope.threadSummaries = [];
+        for (var index = 0; index < threadSummaryDicts.length; index++) {
+          $scope.threadSummaries.push(
+            FeedbackThreadSummaryObjectFactory.createFromBackendDict(
+              threadSummaryDicts[index]));
+        }
+        $scope.numberOfUnreadThreads = responseData.number_of_unread_threads;
+        $scope.explorationPlaylist = responseData.exploration_playlist;
+        $scope.collectionPlaylist = responseData.collection_playlist;
+        $scope.activeSection = LEARNER_DASHBOARD_SECTION_I18N_IDS.INCOMPLETE;
+        $scope.activeSubsection = (
+          LEARNER_DASHBOARD_SUBSECTION_I18N_IDS.EXPLORATIONS);
+        $scope.feedbackThreadActive = false;
+
+        $scope.noExplorationActivity = (
+          ($scope.completedExplorationsList.length === 0) &&
+            ($scope.incompleteExplorationsList.length === 0));
+        $scope.noCollectionActivity = (
+          ($scope.completedCollectionsList.length === 0) &&
+            ($scope.incompleteCollectionsList.length === 0));
+        $scope.noActivity = (
+          ($scope.noExplorationActivity) && ($scope.noCollectionActivity) &&
+          ($scope.explorationPlaylist.length === 0) &&
+          ($scope.collectionPlaylist.length === 0));
+      },
+      function(errorResponse) {
+        if (FATAL_ERROR_CODES.indexOf(errorResponse.status) !== -1) {
+          AlertsService.addWarning('Failed to get learner dashboard data');
+        }
+      }
+    );
+
+    $q.all([userInfoPromise, dashboardDataPromise]).then(function() {
+      $rootScope.loadingMessage = '';
+    });
+
+    $scope.loadingFeedbacks = false;
     var threadIndex = null;
 
     $scope.newMessage = {
@@ -134,6 +237,13 @@ oppia.controller('LearnerDashboard', [
 
     $scope.checkMobileView = function() {
       return ($window.innerWidth < 500);
+    };
+
+    $scope.getVisibleExplorationList = function(startCompletedExpIndex) {
+      return $scope.completedExplorationsList.slice(
+        startCompletedExpIndex, Math.min(
+          startCompletedExpIndex + $scope.PAGE_SIZE,
+          $scope.completedExplorationsList.length));
     };
 
     $scope.showUsernamePopover = function(subscriberUsername) {
@@ -186,7 +296,7 @@ oppia.controller('LearnerDashboard', [
       } else if (section === LEARNER_DASHBOARD_SECTION_I18N_IDS.COMPLETED) {
         if (subsection === LEARNER_DASHBOARD_SUBSECTION_I18N_IDS.EXPLORATIONS) {
           if ($scope.startCompletedExpIndex +
-            $scope.PAGE_SIZE <= $scope.startCompletedExpIndex.length) {
+            $scope.PAGE_SIZE <= $scope.completedExplorationsList.length) {
             $scope.startCompletedExpIndex += $scope.PAGE_SIZE;
           }
         } else if (
@@ -258,7 +368,7 @@ oppia.controller('LearnerDashboard', [
           ui.placeholder.height(ui.item.height());
           $scope.$apply();
         },
-        sort: function (e, ui) {
+        sort: function(e, ui) {
           /* eslint-disable quote-props */
           // Reset the position of the window on scrolling. This keeps the mouse
           // position and elements in sync.
@@ -294,9 +404,9 @@ oppia.controller('LearnerDashboard', [
 
     $scope.onClickThread = function(
         threadStatus, explorationId, threadId, explorationTitle) {
+      $scope.loadingFeedbacks = true;
       var threadDataUrl = UrlInterpolationService.interpolateUrl(
-        '/learnerdashboardthreadhandler/<explorationId>/<threadId>', {
-          explorationId: explorationId,
+        '/learnerdashboardthreadhandler/<threadId>', {
           threadId: threadId
         });
       $scope.explorationTitle = explorationTitle;
@@ -306,8 +416,7 @@ oppia.controller('LearnerDashboard', [
       $scope.threadId = threadId;
 
       for (var index = 0; index < $scope.threadSummaries.length; index++) {
-        if ($scope.threadSummaries[index].explorationId === explorationId &&
-            $scope.threadSummaries[index].threadId === threadId) {
+        if ($scope.threadSummaries[index].threadId === threadId) {
           threadIndex = index;
           var threadSummary = $scope.threadSummaries[index];
           threadSummary.markTheLastTwoMessagesAsRead();
@@ -325,6 +434,7 @@ oppia.controller('LearnerDashboard', [
             FeedbackMessageSummaryObjectFactory.createFromBackendDict(
               messageSummaryDicts[index]));
         }
+        $scope.loadingFeedbacks = false;
       });
     };
 
@@ -333,10 +443,9 @@ oppia.controller('LearnerDashboard', [
       threadIndex = null;
     };
 
-    $scope.addNewMessage = function(explorationId, threadId, newMessage) {
+    $scope.addNewMessage = function(threadId, newMessage) {
       var url = UrlInterpolationService.interpolateUrl(
-        '/threadhandler/<explorationId>/<threadId>', {
-          explorationId: explorationId,
+        '/threadhandler/<threadId>', {
           threadId: threadId
         });
       var payload = {
@@ -362,7 +471,7 @@ oppia.controller('LearnerDashboard', [
     $scope.showSuggestionModal = function(newContent, oldContent, description) {
       $uibModal.open({
         templateUrl: UrlInterpolationService.getDirectiveTemplateUrl(
-          '/pages/learner_dashboard/' +
+          '/pages/' +
           'learner_view_suggestion_modal_directive.html'),
         backdrop: true,
         resolve: {
@@ -492,93 +601,6 @@ oppia.controller('LearnerDashboard', [
         }
       });
     };
-
-    $rootScope.loadingMessage = 'Loading';
-    LearnerDashboardBackendApiService.fetchLearnerDashboardData().then(
-      function(response) {
-        var responseData = response.data;
-        $scope.isCurrentExpSortDescending = true;
-        $scope.isCurrentSubscriptionSortDescending = true;
-        $scope.isCurrentFeedbackSortDescending = true;
-        $scope.currentExpSortType = (
-          EXPLORATIONS_SORT_BY_KEYS_AND_I18N_IDS.LAST_PLAYED.key);
-        $scope.currentSubscribersSortType = (
-          SUBSCRIPTION_SORT_BY_KEYS_AND_I18N_IDS.USERNAME.key);
-        $scope.currentFeedbackThreadsSortType = (
-          FEEDBACK_THREADS_SORT_BY_KEYS_AND_I18N_IDS.LAST_UPDATED.key);
-        $scope.startIncompleteExpIndex = 0;
-        $scope.startCompletedExpIndex = 0;
-        $scope.startIncompleteCollectionIndex = 0;
-        $scope.startCompletedCollectionIndex = 0;
-        $scope.completedExplorationsList = (
-          responseData.completed_explorations_list
-        );
-        $scope.completedCollectionsList = (
-          responseData.completed_collections_list
-        );
-        $scope.incompleteExplorationsList = (
-          responseData.incomplete_explorations_list
-        );
-        $scope.incompleteCollectionsList = (
-          responseData.incomplete_collections_list
-        );
-        $scope.subscriptionsList = (
-          responseData.subscription_list
-        );
-        $scope.numberNonexistentIncompleteExplorations = (
-          responseData.number_of_nonexistent_activities.incomplete_explorations
-        );
-        $scope.numberNonexistentIncompleteCollections = (
-          responseData.number_of_nonexistent_activities.incomplete_collections
-        );
-        $scope.numberNonexistentCompletedExplorations = (
-          responseData.number_of_nonexistent_activities.completed_explorations
-        );
-        $scope.numberNonexistentCompletedCollections = (
-          responseData.number_of_nonexistent_activities.completed_collections
-        );
-        $scope.numberNonexistentExplorationsFromPlaylist = (
-          responseData.number_of_nonexistent_activities.exploration_playlist
-        );
-        $scope.numberNonexistentCollectionsFromPlaylist = (
-          responseData.number_of_nonexistent_activities.collection_playlist
-        );
-        $scope.completedToIncompleteCollections = (
-          responseData.completed_to_incomplete_collections
-        );
-        var threadSummaryDicts = responseData.thread_summaries;
-        $scope.threadSummaries = [];
-        for (var index = 0; index < threadSummaryDicts.length; index++) {
-          $scope.threadSummaries.push(
-            FeedbackThreadSummaryObjectFactory.createFromBackendDict(
-              threadSummaryDicts[index]));
-        }
-        $scope.numberOfUnreadThreads = responseData.number_of_unread_threads;
-        $scope.explorationPlaylist = responseData.exploration_playlist;
-        $scope.collectionPlaylist = responseData.collection_playlist;
-        $scope.activeSection = LEARNER_DASHBOARD_SECTION_I18N_IDS.INCOMPLETE;
-        $scope.activeSubsection = (
-          LEARNER_DASHBOARD_SUBSECTION_I18N_IDS.EXPLORATIONS);
-        $scope.feedbackThreadActive = false;
-
-        $scope.noExplorationActivity = (
-            ($scope.completedExplorationsList.length === 0) &&
-            ($scope.incompleteExplorationsList.length === 0));
-        $scope.noCollectionActivity = (
-            ($scope.completedCollectionsList.length === 0) &&
-            ($scope.incompleteCollectionsList.length === 0));
-        $scope.noActivity = (
-          ($scope.noExplorationActivity) && ($scope.noCollectionActivity) &&
-          ($scope.explorationPlaylist.length === 0) &&
-          ($scope.collectionPlaylist.length === 0));
-        $rootScope.loadingMessage = '';
-      },
-      function(errorResponse) {
-        if (FATAL_ERROR_CODES.indexOf(errorResponse.status) !== -1) {
-          AlertsService.addWarning('Failed to get learner dashboard data');
-        }
-      }
-    );
   }
 ]).animation('.menu-sub-section', function() {
   var NG_HIDE_CLASS = 'ng-hide';

@@ -27,19 +27,24 @@ oppia.directive('outcomeEditor', [
         getOnSaveFeedbackFn: '&onSaveFeedback',
         getOnSaveCorrectnessLabelFn: '&onSaveCorrectnessLabel',
         outcome: '=outcome',
-        suppressWarnings: '&suppressWarnings'
+        onSaveContentIdsToAudioTranslations: '=',
+        areWarningsSuppressed: '&warningsAreSuppressed',
+        addState: '='
       },
       templateUrl: UrlInterpolationService.getDirectiveTemplateUrl(
         '/components/outcome_editor_directive.html'),
       controller: [
-        '$scope', '$uibModal', 'EditorStateService',
-        'stateInteractionIdService', 'COMPONENT_NAME_FEEDBACK',
-        'ExplorationCorrectnessFeedbackService', 'INTERACTION_SPECS',
+        '$scope', '$uibModal', 'StateEditorService',
+        'StateContentIdsToAudioTranslationsService',
+        'StateInteractionIdService', 'INTERACTION_SPECS',
         function(
-            $scope, $uibModal, EditorStateService,
-            stateInteractionIdService, COMPONENT_NAME_FEEDBACK,
-            ExplorationCorrectnessFeedbackService, INTERACTION_SPECS) {
+            $scope, $uibModal, StateEditorService,
+            StateContentIdsToAudioTranslationsService,
+            StateInteractionIdService, INTERACTION_SPECS) {
           $scope.editOutcomeForm = {};
+          $scope.isInQuestionMode = StateEditorService.isInQuestionMode;
+          $scope.canAddPrerequisiteSkill =
+            constants.ENABLE_NEW_STRUCTURE_EDITORS;
           $scope.feedbackEditorIsOpen = false;
           $scope.destinationEditorIsOpen = false;
           $scope.correctnessLabelEditorIsOpen = false;
@@ -47,20 +52,18 @@ oppia.directive('outcomeEditor', [
           // $scope.savedOutcome now being set in onExternalSave().
           $scope.savedOutcome = angular.copy($scope.outcome);
 
-          $scope.COMPONENT_NAME_FEEDBACK = COMPONENT_NAME_FEEDBACK;
-
           $scope.getCurrentInteractionId = function() {
-            return stateInteractionIdService.savedMemento;
+            return StateInteractionIdService.savedMemento;
+          };
+
+          $scope.isCorrectnessFeedbackEnabled = function() {
+            return StateEditorService.getCorrectnessFeedbackEnabled();
           };
 
           // This returns false if the current interaction ID is null.
           $scope.isCurrentInteractionLinear = function() {
             var interactionId = $scope.getCurrentInteractionId();
             return interactionId && INTERACTION_SPECS[interactionId].is_linear;
-          };
-
-          $scope.isCorrectnessFeedbackEnabled = function() {
-            return ExplorationCorrectnessFeedbackService.isEnabled();
           };
 
           var openMarkAllAudioAsNeedingUpdateModal = function() {
@@ -72,10 +75,12 @@ oppia.directive('outcomeEditor', [
               resolve: {},
               controller: 'MarkAllAudioAsNeedingUpdateController'
             }).result.then(function() {
-              $scope.outcome.feedback.markAllAudioAsNeedingUpdate();
-              $scope.savedOutcome.feedback = angular.copy(
-                $scope.outcome.feedback);
-              $scope.getOnSaveFeedbackFn()($scope.savedOutcome);
+              var feedbackContentId = $scope.outcome.feedback.getContentId();
+              StateContentIdsToAudioTranslationsService.displayed
+                .markAllAudioAsNeedingUpdate(feedbackContentId);
+              StateContentIdsToAudioTranslationsService.saveDisplayedValue();
+              $scope.onSaveContentIdsToAudioTranslations(
+                StateContentIdsToAudioTranslationsService.displayed);
             });
           };
 
@@ -119,11 +124,11 @@ oppia.directive('outcomeEditor', [
           $scope.isSelfLoop = function(outcome) {
             return (
               outcome &&
-              outcome.dest === EditorStateService.getActiveStateName());
+              outcome.dest === StateEditorService.getActiveStateName());
           };
 
           $scope.getCurrentInteractionId = function() {
-            return stateInteractionIdService.savedMemento;
+            return StateInteractionIdService.savedMemento;
           };
 
           $scope.isSelfLoopWithNoFeedback = function(outcome) {
@@ -164,8 +169,10 @@ oppia.directive('outcomeEditor', [
               $scope.outcome.feedback.getHtml());
             $scope.savedOutcome.feedback = angular.copy(
               $scope.outcome.feedback);
-            if ($scope.savedOutcome.feedback.hasUnflaggedAudioTranslations() &&
-                fromClickSaveFeedbackButton && contentHasChanged) {
+            var feedbackContentId = $scope.savedOutcome.feedback.getContentId();
+            if (StateContentIdsToAudioTranslationsService.displayed
+              .hasUnflaggedAudioTranslations(feedbackContentId) &&
+              fromClickSaveFeedbackButton && contentHasChanged) {
               openMarkAllAudioAsNeedingUpdateModal();
             }
             $scope.getOnSaveFeedbackFn()($scope.savedOutcome);
@@ -180,6 +187,8 @@ oppia.directive('outcomeEditor', [
             }
             $scope.savedOutcome.refresherExplorationId = (
               $scope.outcome.refresherExplorationId);
+            $scope.savedOutcome.missingPrerequisiteSkillId =
+              $scope.outcome.missingPrerequisiteSkillId;
 
             $scope.getOnSaveDestFn()($scope.savedOutcome);
           };
@@ -201,20 +210,9 @@ oppia.directive('outcomeEditor', [
             $scope.outcome.dest = angular.copy($scope.savedOutcome.dest);
             $scope.outcome.refresherExplorationId = (
               $scope.savedOutcome.refresherExplorationId);
+            $scope.outcome.missingPrerequisiteSkillId =
+              $scope.savedOutcome.missingPrerequisiteSkillId;
             $scope.destinationEditorIsOpen = false;
-          };
-
-
-          $scope.onAudioTranslationsStartEditAction = function() {
-            // Close the content editor and save all existing changes to the
-            // HTML.
-            if ($scope.feedbackEditorIsOpen) {
-              $scope.saveThisFeedback(false);
-            }
-          };
-
-          $scope.onAudioTranslationsEdited = function() {
-            $scope.saveThisFeedback(false);
           };
         }
       ]

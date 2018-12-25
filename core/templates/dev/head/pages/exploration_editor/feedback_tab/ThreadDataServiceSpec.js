@@ -30,7 +30,7 @@ describe('retrieving threads service', function() {
   });
 
   var ThreadDataService, httpBackend;
-  beforeEach(inject(function(_ThreadDataService_, $httpBackend) {
+  beforeEach(inject(function($httpBackend, _ThreadDataService_) {
     ThreadDataService = _ThreadDataService_;
     httpBackend = $httpBackend;
   }));
@@ -57,47 +57,65 @@ describe('retrieving threads service', function() {
       }
     ];
 
-    var mockOpenSuggestionThreads = [
+    var mockGeneralSuggestionThreads = [
       {
-        last_updated: 1441870501232.642,
-        original_author_username: 'test_learner',
-        state_name: null,
-        status: 'open',
-        subject: 'Suggestion from a learner',
-        summary: null,
-        thread_id: 'abc3'
-      },
-      {
-        last_updated: 1441870501233.642,
-        original_author_username: 'test_learner',
-        state_name: null,
-        status: 'open',
-        subject: 'Suggestion from a learner',
-        summary: null,
-        thread_id: 'abc4'
+        assigned_reviewer_id: null,
+        author_name: 'author_1',
+        change_cmd: {
+          new_value: {
+            html: 'new content html',
+            audio_translation: {}
+          },
+          old_value: null,
+          cmd: 'edit_state_property',
+          state_name: 'state_1',
+          property_name: 'content'
+        },
+        final_reviewer_id: null,
+        last_updated: 1528564605944.896,
+        score_category: 'content.Algebra',
+        status: 'received',
+        suggestion_id: 'exploration.exp_1.1234',
+        suggestion_type: 'edit_exploration_state_content',
+        target_id: 'exp_1',
+        target_type: 'exploration',
+        target_version_at_submission: 1,
+        thread_id: 'exp_1.1234'
       }
     ];
-
+    var feedbackThreadsForSuggestionThreads = [
+      {
+        description: 'Suggestion',
+        last_updated: 1441870501231.642,
+        original_author_username: 'test_learner',
+        state_name: null,
+        status: 'open',
+        subject: 'Suggestion from a learner',
+        summary: null,
+        thread_id: 'exp_1.1234'
+      }
+    ];
     httpBackend.whenGET('/threadlisthandler/' + expId).respond({
-      threads: mockFeedbackThreads
+      threads: mockFeedbackThreads.join(feedbackThreadsForSuggestionThreads)
     });
 
     httpBackend.whenGET(
-       '/suggestionlisthandler/' + expId + '?has_suggestion=true&list_type=all'
-     ).respond({
-       threads: mockOpenSuggestionThreads
-     });
+      '/generalsuggestionlisthandler?target_type=exploration' +
+      '&target_id=' + expId).respond({
+      suggestions: mockGeneralSuggestionThreads
+    });
 
-    ThreadDataService.fetchThreads();
+    ThreadDataService.fetchThreads(function() {
+      for (var i = 0; i < mockFeedbackThreads.length; i++) {
+        expect(ThreadDataService.data.feedbackThreads).toContain(
+          mockFeedbackThreads[i]);
+      }
+
+      for (var i = 0; i < mockGeneralSuggestionThreads.length; i++) {
+        expect(ThreadDataService.data.suggestionThreads).toContain(
+          mockGeneralSuggestionThreads[i]);
+      }
+    });
     httpBackend.flush();
-
-    for (var i = 0; i < mockFeedbackThreads.length; i++) {
-      expect(ThreadDataService.data.feedbackThreads).toContain(
-        mockFeedbackThreads[i]);
-    }
-    for (var i = 0; i < mockOpenSuggestionThreads.length; i++) {
-      expect(ThreadDataService.data.suggestionThreads).toContain(
-        mockOpenSuggestionThreads[i]);
-    }
   });
 });

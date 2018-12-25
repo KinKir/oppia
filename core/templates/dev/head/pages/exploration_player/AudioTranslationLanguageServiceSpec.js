@@ -51,28 +51,43 @@ describe('Audio translation language service', function() {
   });
 
   it('should initialize the current audio language when ' +
-     'no preferred language is set and the exploration contains ' +
-     'an audio language that is related to the exploration language',
-    function() {
-      var allAudioLanguageCodesInExploration = ['hi-en', 'en'];
-      var preferredLanguageCode = null;
-      var explorationLanguageCode = 'hi';
-      atls.init(allAudioLanguageCodesInExploration, preferredLanguageCode,
-        explorationLanguageCode);
-      expect(atls.getCurrentAudioLanguageCode()).toEqual('hi-en');
-    }
-  );
+     'no preferred language is set and the exploration contains an audio ' +
+     'language that is related to the exploration language', function() {
+    var allAudioLanguageCodesInExploration = ['hi-en', 'en'];
+    var preferredLanguageCode = null;
+    var explorationLanguageCode = 'hi';
+    atls.init(allAudioLanguageCodesInExploration, preferredLanguageCode,
+      explorationLanguageCode);
+    expect(atls.getCurrentAudioLanguageCode()).toEqual('hi-en');
+  });
 
   it('should initialize the current audio language to the most ' +
      'relevant language when multiple audio languages are related ' +
-     'to the exploration language',
-    function() {
-      var allAudioLanguageCodesInExploration = ['hi-en', 'en'];
-      var preferredLanguageCode = null;
-      var explorationLanguageCode = 'en';
-      atls.init(allAudioLanguageCodesInExploration, preferredLanguageCode,
-        explorationLanguageCode);
-      expect(atls.getCurrentAudioLanguageCode()).toEqual('en');
-    }
-  );
+     'to the exploration language', function() {
+    var allAudioLanguageCodesInExploration = ['hi-en', 'en'];
+    var preferredLanguageCode = null;
+    var explorationLanguageCode = 'en';
+    atls.init(allAudioLanguageCodesInExploration, preferredLanguageCode,
+      explorationLanguageCode);
+    expect(atls.getCurrentAudioLanguageCode()).toEqual('en');
+  });
+
+  it('should not have any audio language option when no audio is available ' +
+     'and automatic Text-to-speech is disabled in an exploration', function() {
+    var allAudioLanguageCodesInExploration = [];
+    var explorationLanguageCode = 'en';
+    var automaticTextToSpeechEnabled = false;
+
+    // When preferredLanguageCode is set.
+    var preferredLanguageCode = 'hi';
+    atls.init(allAudioLanguageCodesInExploration, preferredLanguageCode,
+      explorationLanguageCode, automaticTextToSpeechEnabled);
+    expect(atls.getLanguageOptionsForDropdown()).toEqual([]);
+
+    // When preferredLanguageCode is not set.
+    var preferredLanguageCode = null;
+    atls.init(allAudioLanguageCodesInExploration, preferredLanguageCode,
+      explorationLanguageCode, automaticTextToSpeechEnabled);
+    expect(atls.getLanguageOptionsForDropdown()).toEqual([]);
+  });
 });

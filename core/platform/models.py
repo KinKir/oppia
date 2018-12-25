@@ -23,7 +23,10 @@ import utils
 NAMES = utils.create_enum(
     'activity', 'audit', 'base_model', 'classifier', 'collection', 'config',
     'email', 'exploration', 'feedback', 'file', 'job', 'question',
-    'recommendations', 'statistics', 'user')
+    'recommendations', 'skill', 'statistics', 'story', 'suggestion', 'topic',
+    'user')
+
+GAE_PLATFORM = 'gae'
 
 
 class _Platform(object):
@@ -42,7 +45,8 @@ class _Platform(object):
 
 
 class _Gae(_Platform):
-    """Provides platform-specific imports related to GAE (Google App Engine).
+    """Provides platform-specific imports related to
+    GAE (Google App Engine).
     """
 
     @classmethod
@@ -99,9 +103,21 @@ class _Gae(_Platform):
             elif name == NAMES.recommendations:
                 from core.storage.recommendations import gae_models as recommendations_models # pylint: disable=line-too-long
                 returned_models.append(recommendations_models)
+            elif name == NAMES.skill:
+                from core.storage.skill import gae_models as skill_models
+                returned_models.append(skill_models)
             elif name == NAMES.statistics:
                 from core.storage.statistics import gae_models as statistics_models # pylint: disable=line-too-long
                 returned_models.append(statistics_models)
+            elif name == NAMES.story:
+                from core.storage.story import gae_models as story_models
+                returned_models.append(story_models)
+            elif name == NAMES.suggestion:
+                from core.storage.suggestion import gae_models as suggestion_models # pylint: disable=line-too-long
+                returned_models.append(suggestion_models)
+            elif name == NAMES.topic:
+                from core.storage.topic import gae_models as topic_models
+                returned_models.append(topic_models)
             elif name == NAMES.user:
                 from core.storage.user import gae_models as user_models
                 returned_models.append(user_models)
@@ -149,6 +165,16 @@ class _Gae(_Platform):
         """
         from core.platform.app_identity import gae_app_identity_services
         return gae_app_identity_services
+
+    @classmethod
+    def import_gae_image_services(cls):
+        """Imports and returns gae_image_services module.
+
+        Returns:
+            module. The gae_image_services module.
+        """
+        from core.platform.image import gae_image_services
+        return gae_image_services
 
     @classmethod
     def import_email_services(cls):
@@ -208,7 +234,8 @@ class _Gae(_Platform):
 
 
 class Registry(object):
-    """Platform-agnostic interface for retrieving platform-specific modules.
+    """Platform-agnostic interface for retrieving platform-specific
+    modules.
     """
 
     # Maps platform names to the corresponding module registry classes.
@@ -224,7 +251,7 @@ class Registry(object):
         Returns:
             class: The corresponding platform-specific interface class.
         """
-        return cls._PLATFORM_MAPPING.get(feconf.PLATFORM)
+        return cls._PLATFORM_MAPPING.get(GAE_PLATFORM)
 
     @classmethod
     def import_models(cls, model_names):
@@ -273,6 +300,15 @@ class Registry(object):
             module. The app_identity_services module.
         """
         return cls._get().import_app_identity_services()
+
+    @classmethod
+    def import_gae_image_services(cls):
+        """Imports and returns gae_image_services module.
+
+        Returns:
+            module. The gae_image_services module.
+        """
+        return cls._get().import_gae_image_services()
 
     @classmethod
     def import_email_services(cls):

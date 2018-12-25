@@ -21,15 +21,15 @@ describe('Solution object factory', function() {
 
   describe('SolutionObjectFactory', function() {
     var scope, sof, solution;
-    beforeEach(inject(function ($injector, $rootScope) {
+    beforeEach(inject(function($injector, $rootScope) {
       scope = $rootScope.$new();
       sof = $injector.get('SolutionObjectFactory');
       solution = sof.createFromBackendDict({
         answer_is_exclusive: false,
         correct_answer: 'This is a correct answer!',
         explanation: {
-          html: 'This is the explanation to the answer',
-          audio_translations: {}
+          content_id: 'solution',
+          html: 'This is the explanation to the answer'
         }
       });
     }));
@@ -40,8 +40,8 @@ describe('Solution object factory', function() {
         answer_is_exclusive: false,
         correct_answer: 'This is a correct answer!',
         explanation: {
-          html: 'This is the explanation to the answer',
-          audio_translations: {}
+          content_id: 'solution',
+          html: 'This is the explanation to the answer'
         }
       });
     });

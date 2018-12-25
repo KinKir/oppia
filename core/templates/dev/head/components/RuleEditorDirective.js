@@ -35,17 +35,16 @@ oppia.directive('ruleEditor', [
         '/components/' +
         'rule_editor_directive.html'),
       controller: [
-        '$scope', '$timeout', 'EditorStateService',
-        'ExplorationStatesService', 'RouterService', 'ValidatorsService',
-        'ResponsesService', 'stateInteractionIdService', 'INTERACTION_SPECS',
-        'RULE_TYPE_CLASSIFIER', function(
-            $scope, $timeout, EditorStateService,
-            ExplorationStatesService, RouterService, ValidatorsService,
-            ResponsesService, stateInteractionIdService, INTERACTION_SPECS,
-            RULE_TYPE_CLASSIFIER) {
+        '$scope', '$timeout', 'StateEditorService',
+        'ValidatorsService', 'INTERACTION_SPECS',
+        'ResponsesService', 'StateInteractionIdService',
+        function(
+            $scope, $timeout, StateEditorService,
+            ValidatorsService, INTERACTION_SPECS,
+            ResponsesService, StateInteractionIdService) {
           var DEFAULT_OBJECT_VALUES = GLOBALS.DEFAULT_OBJECT_VALUES;
 
-          $scope.currentInteractionId = stateInteractionIdService.savedMemento;
+          $scope.currentInteractionId = StateInteractionIdService.savedMemento;
           $scope.editRuleForm = {};
 
           // This returns the rule description string.
@@ -94,6 +93,47 @@ oppia.directive('ruleEditor', [
                     );
                     result.push({
                       type: 'checkboxes',
+                      varName: finalInputArray[i + 1]
+                    });
+                  } else if (finalInputArray[2] === 'ListOfSetsOfHtmlStrings') {
+                    $scope.ruleDescriptionChoices = answerChoices.map(
+                      function(choice) {
+                        return {
+                          id: choice.label,
+                          val: choice.label
+                        };
+                      }
+                    );
+                    result.push({
+                      type: 'dropdown',
+                      varName: finalInputArray[i + 1]
+                    });
+                  } else if (
+                    finalInputArray[i + 2] === 'DragAndDropHtmlString') {
+                    $scope.ruleDescriptionChoices = answerChoices.map(
+                      function(choice) {
+                        return {
+                          id: choice.label,
+                          val: choice.label
+                        };
+                      }
+                    );
+                    result.push({
+                      type: 'dragAndDropHtmlStringSelect',
+                      varName: finalInputArray[i + 1]
+                    });
+                  } else if (
+                    finalInputArray[i + 2] === 'DragAndDropPositiveInt') {
+                    $scope.ruleDescriptionChoices = answerChoices.map(
+                      function(choice) {
+                        return {
+                          id: choice.label,
+                          val: choice.label
+                        };
+                      }
+                    );
+                    result.push({
+                      type: 'dragAndDropPositiveIntSelect',
                       varName: finalInputArray[i + 1]
                     });
                   } else {
@@ -194,15 +234,6 @@ oppia.directive('ruleEditor', [
               if (oldRuleInputs.hasOwnProperty(key) &&
                 oldRuleInputTypes[key] === $scope.rule.inputTypes[key]) {
                 $scope.rule.inputs[key] = oldRuleInputs[key];
-              }
-            }
-          };
-
-          $scope.onDeleteTrainingDataEntry = function(index) {
-            if ($scope.rule.type === RULE_TYPE_CLASSIFIER) {
-              var trainingData = $scope.rule.inputs.training_data;
-              if (index < trainingData.length) {
-                trainingData.splice(index, 1);
               }
             }
           };

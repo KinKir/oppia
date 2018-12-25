@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Python configuration for MusicNotesInput interaction."""
+
 from extensions.interactions import base
 
 
@@ -59,5 +61,5 @@ class MusicNotesInput(base.BaseInteraction):
             'title': 'Top 10 answers',
         },
         'calculation_id': 'Top10AnswerFrequencies',
-        'show_addressed_info': True,
+        'addressed_info_is_supported': True,
     }]

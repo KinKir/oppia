@@ -28,13 +28,15 @@ oppia.directive('collectionNodeCreator', [
         'ValidatorsService', 'CollectionEditorStateService',
         'CollectionLinearizerService', 'CollectionUpdateService',
         'CollectionNodeObjectFactory', 'ExplorationSummaryBackendApiService',
-        'SearchExplorationsBackendApiService', 'siteAnalyticsService',
+        'SearchExplorationsBackendApiService', 'SiteAnalyticsService',
+        'INVALID_NAME_CHARS',
         function(
             $scope, $http, $window, $filter, AlertsService,
             ValidatorsService, CollectionEditorStateService,
             CollectionLinearizerService, CollectionUpdateService,
             CollectionNodeObjectFactory, ExplorationSummaryBackendApiService,
-            SearchExplorationsBackendApiService, siteAnalyticsService) {
+            SearchExplorationsBackendApiService, SiteAnalyticsService,
+            INVALID_NAME_CHARS) {
           $scope.collection = CollectionEditorStateService.getCollection();
           $scope.newExplorationId = '';
           $scope.newExplorationTitle = '';
@@ -73,8 +75,10 @@ oppia.directive('collectionNodeCreator', [
 
           var isValidSearchQuery = function(searchQuery) {
             // Allow underscores because they are allowed in exploration IDs.
-            var INVALID_SEARCH_CHARS = GLOBALS.INVALID_NAME_CHARS.replace(
-              '_', '');
+            var INVALID_SEARCH_CHARS = (
+              INVALID_NAME_CHARS.filter(function(item) {
+                return item !== '_';
+              }));
             for (var i = 0; i < INVALID_SEARCH_CHARS.length; i++) {
               if (searchQuery.indexOf(INVALID_SEARCH_CHARS[i]) !== -1) {
                 return false;
@@ -115,8 +119,7 @@ oppia.directive('collectionNodeCreator', [
                 AlertsService.addWarning(
                   'There was an error while adding an exploration to the ' +
                   'collection.');
-              }
-            );
+              });
           };
 
           var convertTypeaheadToExplorationId = function(typeaheadOption) {
@@ -143,7 +146,7 @@ oppia.directive('collectionNodeCreator', [
               $scope.newExplorationTitle = '';
               var newExplorationId = response.data.explorationId;
 
-              siteAnalyticsService
+              SiteAnalyticsService
                 .registerCreateNewExplorationInCollectionEvent(
                   newExplorationId);
               addExplorationToCollection(newExplorationId);

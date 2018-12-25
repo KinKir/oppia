@@ -28,9 +28,9 @@ oppia.directive('searchBar', [
         '$translate', 'SearchService', 'DebouncerService', 'HtmlEscaperService',
         'UrlService', 'ConstructTranslationIdsService',
         function(
-            $scope, $rootScope, $timeout, $window, $location, $translate,
-            SearchService, DebouncerService, HtmlEscaperService, UrlService,
-            ConstructTranslationIdsService) {
+            $scope, $rootScope, $timeout, $window, $location,
+            $translate, SearchService, DebouncerService, HtmlEscaperService,
+            UrlService, ConstructTranslationIdsService) {
           $scope.isSearchInProgress = SearchService.isSearchInProgress;
           $scope.SEARCH_DROPDOWN_CATEGORIES = (
             GLOBALS.SEARCH_DROPDOWN_CATEGORIES.map(
@@ -173,7 +173,7 @@ oppia.directive('searchBar', [
 
             $scope.searchQuery =
              SearchService.updateSearchFieldsBasedOnUrlQuery(
-              $window.location.search, $scope.selectionDetails);
+               $window.location.search, $scope.selectionDetails);
 
             updateSelectionDetails('categories');
             updateSelectionDetails('languageCodes');

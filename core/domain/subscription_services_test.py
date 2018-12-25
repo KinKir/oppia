@@ -20,13 +20,13 @@ from core.domain import collection_domain
 from core.domain import collection_services
 from core.domain import exp_domain
 from core.domain import exp_services
-from core.domain import feedback_domain
 from core.domain import feedback_services
 from core.domain import rights_manager
 from core.domain import subscription_services
 from core.domain import user_services
 from core.platform import models
 from core.tests import test_utils
+import feconf
 
 (user_models,) = models.Registry.import_models([models.NAMES.user])
 
@@ -64,7 +64,7 @@ class SubscriptionsTest(test_utils.GenericTestBase):
         subscriptions_model = user_models.UserSubscriptionsModel.get(
             user_id, strict=False)
         return (
-            subscriptions_model.feedback_thread_ids
+            subscriptions_model.general_feedback_thread_ids
             if subscriptions_model else [])
 
     def _get_exploration_ids_subscribed_to(self, user_id):
@@ -160,31 +160,28 @@ class SubscriptionsTest(test_utils.GenericTestBase):
         # The viewer posts a message to the thread.
         message_text = 'text'
         feedback_services.create_thread(
-            'exp_id', 'state_name', self.viewer_id, 'subject', message_text)
+            feconf.ENTITY_TYPE_EXPLORATION, 'exp_id',
+            self.viewer_id, 'subject', message_text)
 
         thread_ids_subscribed_to = self._get_thread_ids_subscribed_to(
             self.viewer_id)
         self.assertEqual(len(thread_ids_subscribed_to), 1)
-        full_thread_id = thread_ids_subscribed_to[0]
-        thread_id = (
-            feedback_domain.FeedbackThread.get_thread_id_from_full_thread_id(
-                full_thread_id))
+        thread_id = thread_ids_subscribed_to[0]
+
         self.assertEqual(
-            feedback_services.get_messages('exp_id', thread_id)[0].text,
+            feedback_services.get_messages(thread_id)[0].text,
             message_text)
 
         # The editor posts a follow-up message to the thread.
         new_message_text = 'new text'
         feedback_services.create_message(
-            'exp_id', thread_id, self.editor_id, '', '', new_message_text)
+            thread_id, self.editor_id, '', '', new_message_text)
 
         # The viewer and editor are now both subscribed to the thread.
         self.assertEqual(
-            self._get_thread_ids_subscribed_to(self.viewer_id),
-            [full_thread_id])
+            self._get_thread_ids_subscribed_to(self.viewer_id), [thread_id])
         self.assertEqual(
-            self._get_thread_ids_subscribed_to(self.editor_id),
-            [full_thread_id])
+            self._get_thread_ids_subscribed_to(self.editor_id), [thread_id])
 
     def test_creating_exploration_results_in_subscription(self):
         self.assertEqual(
@@ -335,10 +332,11 @@ class SubscriptionsTest(test_utils.GenericTestBase):
         # If the collection author adds the exploration to his/her collection,
         # the collection author should not be subscribed to the exploration nor
         # should the exploration author be subscribed to the collection.
-        collection_services.update_collection(self.owner_id, COLLECTION_ID, [{
-            'cmd': collection_domain.CMD_ADD_COLLECTION_NODE,
-            'exploration_id': EXP_ID
-        }], 'Add new exploration to collection.')
+        collection_services.update_collection(
+            self.owner_id, COLLECTION_ID, [{
+                'cmd': collection_domain.CMD_ADD_COLLECTION_NODE,
+                'exploration_id': EXP_ID
+            }], 'Add new exploration to collection.')
 
         # Ensure subscriptions are as expected.
         self.assertEqual(
@@ -362,7 +360,6 @@ class UserSubscriptionsTest(test_utils.GenericTestBase):
         self.owner_id = self.get_user_id_from_email(self.OWNER_EMAIL)
         self.owner_2_id = self.get_user_id_from_email(self.OWNER_2_EMAIL)
 
-
     def _get_all_subscribers_of_creators(self, user_id):
         subscribers_model = user_models.UserSubscribersModel.get(
             user_id, strict=False)
@@ -376,7 +373,6 @@ class UserSubscriptionsTest(test_utils.GenericTestBase):
         return (
             subscriptions_model.creator_ids
             if subscriptions_model else [])
-
 
     def test_subscribe_to_creator(self):
         self.assertEqual(self._get_all_subscribers_of_creators(
@@ -399,8 +395,8 @@ class UserSubscriptionsTest(test_utils.GenericTestBase):
             [self.owner_id])
 
         # Subscribe another creator.
-        subscription_services.subscribe_to_creator(USER_ID_2,
-                                                   self.owner_id)
+        subscription_services.subscribe_to_creator(
+            USER_ID_2, self.owner_id)
         self.assertEqual(
             self._get_all_subscribers_of_creators(self.owner_id),
             [USER_ID, USER_ID_2])

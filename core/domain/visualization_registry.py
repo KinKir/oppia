@@ -35,7 +35,8 @@ class Registry(object):
         cls.visualizations_dict.clear()
 
         # Add new visualization instances to the registry.
-        for name, clazz in inspect.getmembers(models, inspect.isclass):
+        for name, clazz in inspect.getmembers(
+                models, predicate=inspect.isclass):
             if name.endswith('_test') or name == 'BaseVisualization':
                 continue
 
@@ -69,7 +70,8 @@ class Registry(object):
 
     @classmethod
     def get_all_visualization_ids(cls):
-        """Gets a visualization class by its id (which is also its class name).
+        """Gets a visualization class by its id
+        (which is also its class name).
         """
         if not cls.visualizations_dict:
             cls._refresh_registry()

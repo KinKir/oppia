@@ -17,25 +17,26 @@
  */
 
 oppia.directive('solutionExplanationEditor', [
-  'UrlInterpolationService', 'stateSolutionService',
-  function(UrlInterpolationService, stateSolutionService) {
+  'UrlInterpolationService', 'StateSolutionService',
+  function(UrlInterpolationService, StateSolutionService) {
     return {
       restrict: 'E',
-      scope: {},
+      scope: {
+        onSaveSolution: '=',
+        onSaveContentIdsToAudioTranslations: '='
+      },
       templateUrl: UrlInterpolationService.getDirectiveTemplateUrl(
         '/components/solution_explanation_editor_directive.html'),
       controller: [
-        '$scope', '$uibModal', 'EditabilityService', 'stateSolutionService',
-        'COMPONENT_NAME_SOLUTION',
-        function($scope, $uibModal, EditabilityService, stateSolutionService,
-            COMPONENT_NAME_SOLUTION) {
+        '$scope', '$uibModal', 'EditabilityService',
+        'StateContentIdsToAudioTranslationsService', 'StateSolutionService',
+        function($scope, $uibModal, EditabilityService,
+            StateContentIdsToAudioTranslationsService, StateSolutionService) {
           $scope.isEditable = EditabilityService.isEditable();
-
           $scope.editSolutionForm = {};
           $scope.explanationEditorIsOpen = false;
 
-          $scope.stateSolutionService = stateSolutionService;
-          $scope.COMPONENT_NAME_SOLUTION = COMPONENT_NAME_SOLUTION;
+          $scope.StateSolutionService = StateSolutionService;
 
           $scope.EXPLANATION_FORM_SCHEMA = {
             type: 'html',
@@ -50,30 +51,22 @@ oppia.directive('solutionExplanationEditor', [
 
           $scope.saveThisExplanation = function() {
             var contentHasChanged = (
-              stateSolutionService.displayed.explanation.getHtml() !==
-              stateSolutionService.savedMemento.explanation.getHtml());
-            if (stateSolutionService.displayed.explanation
-              .hasUnflaggedAudioTranslations() && contentHasChanged) {
+              StateSolutionService.displayed.explanation.getHtml() !==
+              StateSolutionService.savedMemento.explanation.getHtml());
+            var solutionContentId = StateSolutionService.displayed.explanation
+              .getContentId();
+            if (StateContentIdsToAudioTranslationsService.displayed
+              .hasUnflaggedAudioTranslations(solutionContentId) &&
+              contentHasChanged) {
               openMarkAllAudioAsNeedingUpdateModal();
             }
-            stateSolutionService.saveDisplayedValue();
+            StateSolutionService.saveDisplayedValue();
+            $scope.onSaveSolution(StateSolutionService.displayed);
             $scope.explanationEditorIsOpen = false;
           };
 
           $scope.cancelThisExplanationEdit = function() {
             $scope.explanationEditorIsOpen = false;
-          };
-
-          $scope.onAudioTranslationsStartEditAction = function() {
-            // Close the content editor and save all existing changes to the
-            // HTML.
-            if ($scope.explanationEditorIsOpen) {
-              $scope.saveThisExplanation();
-            }
-          };
-
-          $scope.onAudioTranslationsEdited = function() {
-            stateSolutionService.saveDisplayedValue();
           };
 
           $scope.$on('externalSave', function() {
@@ -92,9 +85,13 @@ oppia.directive('solutionExplanationEditor', [
               resolve: {},
               controller: 'MarkAllAudioAsNeedingUpdateController'
             }).result.then(function() {
-              stateSolutionService.displayed.explanation
-                .markAllAudioAsNeedingUpdate();
-              stateSolutionService.saveDisplayedValue();
+              var solutionContentId = StateSolutionService.displayed.explanation
+                .getContentId();
+              StateContentIdsToAudioTranslationsService.displayed
+                .markAllAudioAsNeedingUpdate(solutionContentId);
+              StateContentIdsToAudioTranslationsService.saveDisplayedValue();
+              $scope.onSaveContentIdsToAudioTranslations(
+                StateContentIdsToAudioTranslationsService.displayed);
             });
           };
         }
