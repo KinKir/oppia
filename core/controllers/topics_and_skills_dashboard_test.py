@@ -48,10 +48,11 @@ class BaseTopicsAndSkillsDashboardTests(test_utils.GenericTestBase):
             [self.linked_skill_id], [], 1)
 
     def _get_csrf_token_for_put(self):
+        """Gets the csrf token."""
         csrf_token = None
         url_prefix = feconf.TOPICS_AND_SKILLS_DASHBOARD_URL
         with self.swap(constants, 'ENABLE_NEW_STRUCTURE_EDITORS', True):
-            response = self.testapp.get(url_prefix)
+            response = self.get_html_response(url_prefix)
             csrf_token = self.get_csrf_token_from_response(response)
         return csrf_token
 
@@ -62,8 +63,7 @@ class TopicsAndSkillsDashboardPageTests(BaseTopicsAndSkillsDashboardTests):
         self.login(self.ADMIN_EMAIL)
         with self.swap(constants, 'ENABLE_NEW_STRUCTURE_EDITORS', False):
             url = feconf.TOPICS_AND_SKILLS_DASHBOARD_URL
-            response = self.testapp.get(url, expect_errors=True)
-            self.assertEqual(response.status_int, 404)
+            self.get_html_response(url, expected_status_int=404)
         self.logout()
 
 
@@ -80,9 +80,9 @@ class TopicsAndSkillsDashboardPageDataHandlerTests(
         self.save_new_skill(skill_id_2, self.admin_id, 'Description 2')
         with self.swap(constants, 'ENABLE_NEW_STRUCTURE_EDITORS', True):
             self.login(self.NEW_USER_EMAIL)
-            response = self.testapp.get(
-                feconf.TOPICS_AND_SKILLS_DASHBOARD_DATA_URL, expect_errors=True)
-            self.assertEqual(response.status_int, 401)
+            self.get_json(
+                feconf.TOPICS_AND_SKILLS_DASHBOARD_DATA_URL,
+                expected_status_int=401)
             self.logout()
 
             # Check that admins can access the topics and skills dashboard data.
@@ -182,8 +182,7 @@ class NewTopicHandlerTests(BaseTopicsAndSkillsDashboardTests):
             csrf_token = self._get_csrf_token_for_put()
 
             self.post_json(
-                self.url, {}, csrf_token=csrf_token, expect_errors=True,
-                expected_status_int=404)
+                self.url, {}, csrf_token=csrf_token, expected_status_int=404)
         self.logout()
 
 
@@ -212,8 +211,7 @@ class NewSkillHandlerTests(BaseTopicsAndSkillsDashboardTests):
         with self.swap(constants, 'ENABLE_NEW_STRUCTURE_EDITORS', False):
             csrf_token = self._get_csrf_token_for_put()
             self.post_json(
-                self.url, {}, csrf_token=csrf_token, expect_errors=True,
-                expected_status_int=404)
+                self.url, {}, csrf_token=csrf_token, expected_status_int=404)
         self.logout()
 
     def test_skill_creation_in_invalid_topic(self):
@@ -225,7 +223,7 @@ class NewSkillHandlerTests(BaseTopicsAndSkillsDashboardTests):
                 'linked_topic_ids': ['topic']
             }
             json_response = self.post_json(
-                self.url, payload, csrf_token=csrf_token, expect_errors=True,
+                self.url, payload, csrf_token=csrf_token,
                 expected_status_int=400)
             self.assertEqual(json_response['status_code'], 400)
             self.logout()
@@ -255,24 +253,25 @@ class MergeSkillHandlerTests(BaseTopicsAndSkillsDashboardTests):
 
     def setUp(self):
         super(MergeSkillHandlerTests, self).setUp()
-        self.url = feconf.MERGE_SKILL_URL
+        self.url = feconf.MERGE_SKILLS_URL
 
         self.question_id = question_services.get_new_question_id()
         self.question = self.save_new_question(
             self.question_id, self.admin_id,
             self._create_valid_question_data('ABC'))
         question_services.create_new_question_skill_link(
-            self.question_id, self.linked_skill_id)
+            self.question_id, self.linked_skill_id, 0.5)
 
     def test_merge_skill(self):
         self.login(self.ADMIN_EMAIL)
 
         old_skill_id = self.linked_skill_id
         new_skill_id = skill_services.get_new_skill_id()
+        self.save_new_skill(new_skill_id, self.admin_id, 'Skill Description')
         old_links = question_services.get_question_skill_links_of_skill(
-            old_skill_id)
+            old_skill_id, 'Old Description')
         new_links = question_services.get_question_skill_links_of_skill(
-            new_skill_id)
+            new_skill_id, 'Skill Description')
 
         self.assertEqual(len(old_links), 1)
         self.assertEqual(old_links[0].skill_id, old_skill_id)
@@ -288,9 +287,9 @@ class MergeSkillHandlerTests(BaseTopicsAndSkillsDashboardTests):
                 self.url, payload, csrf_token=csrf_token)
 
             old_links = question_services.get_question_skill_links_of_skill(
-                old_skill_id)
+                old_skill_id, 'Old Description')
             new_links = question_services.get_question_skill_links_of_skill(
-                new_skill_id)
+                new_skill_id, 'Skill Description')
 
             self.assertEqual(json_response['merged_into_skill'], new_skill_id)
             self.assertEqual(len(old_links), 0)
@@ -304,6 +303,5 @@ class MergeSkillHandlerTests(BaseTopicsAndSkillsDashboardTests):
         with self.swap(constants, 'ENABLE_NEW_STRUCTURE_EDITORS', False):
             csrf_token = self._get_csrf_token_for_put()
             self.post_json(
-                self.url, {}, csrf_token=csrf_token, expect_errors=True,
-                expected_status_int=404)
+                self.url, {}, csrf_token=csrf_token, expected_status_int=404)
         self.logout()

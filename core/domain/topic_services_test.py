@@ -248,17 +248,22 @@ class TopicServicesUnitTests(test_utils.GenericTestBase):
         changelist = [subtopic_page_domain.SubtopicPageChange({
             'cmd': subtopic_page_domain.CMD_UPDATE_SUBTOPIC_PAGE_PROPERTY,
             'property_name': (
-                subtopic_page_domain.SUBTOPIC_PAGE_PROPERTY_HTML_DATA),
+                subtopic_page_domain.SUBTOPIC_PAGE_PROPERTY_PAGE_CONTENTS_HTML),
             'old_value': '',
             'subtopic_id': 1,
-            'new_value': '<p>New Value</p>'
+            'new_value': {
+                'html': '<p>New Value</p>',
+                'content_id': 'content'
+            }
         })]
         topic_services.update_topic_and_subtopic_pages(
             self.user_id_admin, self.TOPIC_ID, changelist,
             'Updated html data')
         subtopic_page = subtopic_page_services.get_subtopic_page_by_id(
             self.TOPIC_ID, 1)
-        self.assertEqual(subtopic_page.html_data, '<p>New Value</p>')
+        self.assertEqual(
+            subtopic_page.page_contents.subtitled_html.html,
+            '<p>New Value</p>')
 
         # Test a sequence of changes with both topic and subtopic page changes.
         changelist = [
@@ -274,10 +279,36 @@ class TopicServicesUnitTests(test_utils.GenericTestBase):
             subtopic_page_domain.SubtopicPageChange({
                 'cmd': subtopic_page_domain.CMD_UPDATE_SUBTOPIC_PAGE_PROPERTY,
                 'property_name': (
-                    subtopic_page_domain.SUBTOPIC_PAGE_PROPERTY_HTML_DATA),
-                'old_value': '',
+                    subtopic_page_domain
+                    .SUBTOPIC_PAGE_PROPERTY_PAGE_CONTENTS_HTML),
+                'old_value': {
+                    'html': '',
+                    'content_id': 'content'
+                },
                 'subtopic_id': 2,
-                'new_value': '<p>New Value</p>'
+                'new_value': {
+                    'html': '<p>New Value</p>',
+                    'content_id': 'content'
+                }
+            }),
+            subtopic_page_domain.SubtopicPageChange({
+                'cmd': subtopic_page_domain.CMD_UPDATE_SUBTOPIC_PAGE_PROPERTY,
+                'property_name': (
+                    subtopic_page_domain
+                    .SUBTOPIC_PAGE_PROPERTY_PAGE_CONTENTS_AUDIO),
+                'old_value': {
+                    'content': {}
+                },
+                'new_value': {
+                    'content': {
+                        'en': {
+                            'filename': 'test.mp3',
+                            'file_size_bytes': 100,
+                            'needs_update': False
+                        }
+                    }
+                },
+                'subtopic_id': 2
             }),
             topic_domain.TopicChange({
                 'cmd': topic_domain.CMD_MOVE_SKILL_ID_TO_SUBTOPIC,
@@ -303,7 +334,17 @@ class TopicServicesUnitTests(test_utils.GenericTestBase):
         # Validate the newly created subtopic page.
         subtopic_page = subtopic_page_services.get_subtopic_page_by_id(
             self.TOPIC_ID, 2, strict=False)
-        self.assertEqual(subtopic_page.html_data, '<p>New Value</p>')
+        self.assertEqual(
+            subtopic_page.page_contents.subtitled_html.html,
+            '<p>New Value</p>')
+        self.assertEqual(
+            subtopic_page.page_contents
+            .content_ids_to_audio_translations['content']['en'].to_dict(),
+            {
+                'filename': 'test.mp3',
+                'file_size_bytes': 100,
+                'needs_update': False
+            })
 
         # Making sure everything resets when an error is encountered anywhere.
         changelist = [
@@ -326,10 +367,14 @@ class TopicServicesUnitTests(test_utils.GenericTestBase):
             subtopic_page_domain.SubtopicPageChange({
                 'cmd': subtopic_page_domain.CMD_UPDATE_SUBTOPIC_PAGE_PROPERTY,
                 'property_name': (
-                    subtopic_page_domain.SUBTOPIC_PAGE_PROPERTY_HTML_DATA),
+                    subtopic_page_domain
+                    .SUBTOPIC_PAGE_PROPERTY_PAGE_CONTENTS_HTML),
                 'old_value': '',
                 'subtopic_id': 2,
-                'new_value': '<p>New Value</p>'
+                'new_value': {
+                    'html': '<p>New Value</p>',
+                    'content_id': 'content'
+                }
             }),
         ]
         with self.assertRaisesRegexp(
@@ -652,6 +697,37 @@ class TopicServicesUnitTests(test_utils.GenericTestBase):
             self.user_a, topic_rights))
         self.assertFalse(topic_services.check_can_edit_topic(
             self.user_b, topic_rights))
+
+    def test_get_all_topic_rights_of_user(self):
+        topic_services.assign_role(
+            self.user_admin, self.user_a,
+            topic_domain.ROLE_MANAGER, self.TOPIC_ID)
+        topic_rights = topic_services.get_topic_rights_with_user(self.user_id_a)
+        self.assertEqual(len(topic_rights), 1)
+        self.assertEqual(topic_rights[0].id, self.TOPIC_ID)
+        self.assertEqual(topic_rights[0].manager_ids, [self.user_id_a])
+
+    def test_deassign_user_from_all_topics(self):
+        self.save_new_topic(
+            'topic_2', self.user_id, 'Name 2', 'Description 2',
+            [], [], [], [], 1)
+        self.save_new_topic(
+            'topic_3', self.user_id, 'Name 3', 'Description 3',
+            [], [], [], [], 1)
+
+        topic_services.assign_role(
+            self.user_admin, self.user_a,
+            topic_domain.ROLE_MANAGER, self.TOPIC_ID)
+        topic_services.assign_role(
+            self.user_admin, self.user_a,
+            topic_domain.ROLE_MANAGER, 'topic_2')
+        topic_rights = topic_services.get_topic_rights_with_user(self.user_id_a)
+        self.assertEqual(len(topic_rights), 2)
+
+        topic_services.deassign_user_from_all_topics(
+            self.user_admin, self.user_id_a)
+        topic_rights = topic_services.get_topic_rights_with_user(self.user_id_a)
+        self.assertEqual(len(topic_rights), 0)
 
     def test_reassigning_manager_role_to_same_user(self):
         topic_services.assign_role(

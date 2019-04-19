@@ -23,13 +23,13 @@ oppia.directive('topicEditorNavbar', [
       templateUrl: UrlInterpolationService.getDirectiveTemplateUrl(
         '/pages/topic_editor/topic_editor_navbar_directive.html'),
       controller: [
-        '$scope', '$rootScope', '$uibModal', 'AlertsService',
+        '$scope', '$rootScope', '$uibModal', '$window', 'AlertsService',
         'UndoRedoService', 'TopicEditorStateService', 'UrlService',
         'TopicRightsBackendApiService', 'TopicEditorRoutingService',
         'EVENT_TOPIC_INITIALIZED', 'EVENT_TOPIC_REINITIALIZED',
         'EVENT_UNDO_REDO_SERVICE_CHANGE_APPLIED',
         function(
-            $scope, $rootScope, $uibModal, AlertsService,
+            $scope, $rootScope, $uibModal, $window, AlertsService,
             UndoRedoService, TopicEditorStateService, UrlService,
             TopicRightsBackendApiService, TopicEditorRoutingService,
             EVENT_TOPIC_INITIALIZED, EVENT_TOPIC_REINITIALIZED,
@@ -39,7 +39,7 @@ oppia.directive('topicEditorNavbar', [
           $scope.validationIssues = [];
           $scope.topicRights = TopicEditorStateService.getTopicRights();
           $scope.isSaveInProgress = TopicEditorStateService.isSavingTopic;
-          $scope.getTabStatuses = TopicEditorRoutingService.getTabStatuses;
+          $scope.getActiveTabName = TopicEditorRoutingService.getActiveTabName;
           $scope.selectMainTab = TopicEditorRoutingService.navigateToMainTab;
           $scope.selectSubtopicsTab =
             TopicEditorRoutingService.navigateToSubtopicsTab;
@@ -52,15 +52,48 @@ oppia.directive('topicEditorNavbar', [
 
           $scope.publishTopic = function() {
             if (!$scope.topicRights.canPublishTopic()) {
-              return false;
+              var modalInstance = $uibModal.open({
+                templateUrl: UrlInterpolationService.getDirectiveTemplateUrl(
+                  '/pages/topic_editor/' +
+                  'topic_editor_send_mail_modal_directive.html'),
+                backdrop: true,
+                controller: [
+                  '$scope', '$uibModalInstance',
+                  function($scope, $uibModalInstance) {
+                    $scope.sendMail = function() {
+                      $uibModalInstance.close();
+                    };
+                    $scope.cancel = function() {
+                      $uibModalInstance.dismiss('cancel');
+                    };
+                  }
+                ]
+              });
+
+              modalInstance.result.then(function() {
+                TopicRightsBackendApiService.sendMail(
+                  $scope.topicId, $scope.topicName).then(function() {
+                  var successToast = 'Mail Sent.';
+                  AlertsService.addSuccessMessage(
+                    successToast, 1000);
+                });
+              });
+              return;
             }
+            var redirectToDashboard = false;
             TopicRightsBackendApiService.publishTopic($scope.topicId).then(
               function() {
+                if (!$scope.topicRights.isPublished()) {
+                  redirectToDashboard = true;
+                }
                 $scope.topicRights.markTopicAsPublished();
                 TopicEditorStateService.setTopicRights($scope.topicRights);
               }
             ).then(function() {
               var successToast = 'Topic published.';
+              if (redirectToDashboard) {
+                $window.location = '/topics_and_skills_dashboard';
+              }
               AlertsService.addSuccessMessage(
                 successToast, 1000);
             });

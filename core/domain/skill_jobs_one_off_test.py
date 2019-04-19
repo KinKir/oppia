@@ -130,9 +130,16 @@ class SkillMigrationOneOffJobTests(test_utils.GenericTestBase):
                 'content_id': 'explanation',
                 'html': feconf.DEFAULT_SKILL_EXPLANATION
             },
-            'content_ids_to_audio_translations': {}
+            'content_ids_to_audio_translations': {
+                'explanation': {}
+            },
+            'written_translations': {
+                'translations_mapping': {
+                    'explanation': {}
+                }
+            }
         }
-        self.save_new_skill_with_story_and_skill_contents_schema_version(
+        self.save_new_skill_with_defined_schema_versions(
             self.SKILL_ID, self.albert_id, 'A description', 0,
             misconceptions=[], skill_contents=skill_contents)
         skill = (

@@ -172,8 +172,9 @@ describe('URL Interpolation Service', function() {
 
     // Non alpha-numeric will not match the pattern matching for finding a
     // parameter name.
-    expect('/test_url/<b@d!#$%^&*() p@r@m n@m3`~[]{}>', {}).toBe(
-      '/test_url/<b@d!#$%^&*() p@r@m n@m3`~[]{}>');
+    expect(uis.interpolateUrl(
+      '/test_url/<b@d!#$%^&*() p@r@m n@m3`~[]{}>', {}
+    )).toBe('/test_url/<b@d!#$%^&*() p@r@m n@m3`~[]{}>');
 
     // Parameter names cannot have spaces.
     expect(uis.interpolateUrl('/test_url/<parameter with spaces>', {
@@ -287,10 +288,10 @@ describe('URL Interpolation Service', function() {
     expect(uis.getStoryUrl('/storyId', {})).toBe('/story/storyId');
     expect(uis.getStoryUrl('/storyId123', {})).toBe('/story/storyId123');
     expect(uis.getStoryUrl('/story&Id', {})).toBe('/story/story&Id');
-    expect(function(){
+    expect(function() {
       uis.getStoryUrl('', {});
     }).toThrowError('Empty path passed in method.');
-    expect(function(){
+    expect(function() {
       uis.getStoryUrl('storyId', {});
     }).toThrowError('Path must start with \'/\': \'storyId\'.');
   });

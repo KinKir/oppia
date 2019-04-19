@@ -17,33 +17,31 @@
  */
 
 oppia.controller('SettingsTab', [
-  '$scope', '$http', '$window', '$uibModal',
-  '$rootScope', 'ExplorationDataService',
-  'ExplorationTitleService', 'ExplorationCategoryService',
-  'ExplorationObjectiveService', 'ExplorationLanguageCodeService',
-  'ExplorationTagsService', 'ExplorationRightsService',
-  'ExplorationInitStateNameService', 'ExplorationParamSpecsService',
-  'ChangeListService', 'AlertsService', 'ExplorationStatesService',
-  'ExplorationParamChangesService', 'ExplorationWarningsService',
-  'ExplorationAdvancedFeaturesService', 'ALL_CATEGORIES',
-  'EXPLORATION_TITLE_INPUT_FOCUS_LABEL', 'UserEmailPreferencesService',
-  'EditableExplorationBackendApiService', 'UrlInterpolationService',
-  'ExplorationAutomaticTextToSpeechService',
-  'ExplorationCorrectnessFeedbackService',
+  '$http', '$rootScope', '$scope', '$uibModal', '$window', 'AlertsService',
+  'ChangeListService', 'EditableExplorationBackendApiService',
+  'ExplorationAutomaticTextToSpeechService', 'ExplorationCategoryService',
+  'ExplorationCorrectnessFeedbackService', 'ExplorationDataService',
+  'ExplorationFeaturesService', 'ExplorationInitStateNameService',
+  'ExplorationLanguageCodeService', 'ExplorationObjectiveService',
+  'ExplorationParamChangesService', 'ExplorationParamSpecsService',
+  'ExplorationRightsService', 'ExplorationStatesService',
+  'ExplorationTagsService', 'ExplorationTitleService',
+  'ExplorationWarningsService', 'UrlInterpolationService',
+  'UserEmailPreferencesService', 'ALL_CATEGORIES',
+  'EXPLORATION_TITLE_INPUT_FOCUS_LABEL',
   function(
-      $scope, $http, $window, $uibModal,
-      $rootScope, ExplorationDataService,
-      ExplorationTitleService, ExplorationCategoryService,
-      ExplorationObjectiveService, ExplorationLanguageCodeService,
-      ExplorationTagsService, ExplorationRightsService,
-      ExplorationInitStateNameService, ExplorationParamSpecsService,
-      ChangeListService, AlertsService, ExplorationStatesService,
-      ExplorationParamChangesService, ExplorationWarningsService,
-      ExplorationAdvancedFeaturesService, ALL_CATEGORIES,
-      EXPLORATION_TITLE_INPUT_FOCUS_LABEL, UserEmailPreferencesService,
-      EditableExplorationBackendApiService, UrlInterpolationService,
-      ExplorationAutomaticTextToSpeechService,
-      ExplorationCorrectnessFeedbackService) {
+      $http, $rootScope, $scope, $uibModal, $window, AlertsService,
+      ChangeListService, EditableExplorationBackendApiService,
+      ExplorationAutomaticTextToSpeechService, ExplorationCategoryService,
+      ExplorationCorrectnessFeedbackService, ExplorationDataService,
+      ExplorationFeaturesService, ExplorationInitStateNameService,
+      ExplorationLanguageCodeService, ExplorationObjectiveService,
+      ExplorationParamChangesService, ExplorationParamSpecsService,
+      ExplorationRightsService, ExplorationStatesService,
+      ExplorationTagsService, ExplorationTitleService,
+      ExplorationWarningsService, UrlInterpolationService,
+      UserEmailPreferencesService, ALL_CATEGORIES,
+      EXPLORATION_TITLE_INPUT_FOCUS_LABEL) {
     $scope.EXPLORATION_TITLE_INPUT_FOCUS_LABEL = (
       EXPLORATION_TITLE_INPUT_FOCUS_LABEL);
 
@@ -134,6 +132,12 @@ oppia.controller('SettingsTab', [
       value: 'viewer'
     }];
 
+    $scope.formStyle = {
+      display: 'table-cell',
+      width: '16.66666667%',
+      'vertical-align': 'top'
+    };
+
     $scope.saveExplorationTitle = function() {
       ExplorationTitleService.saveDisplayedValue();
     };
@@ -173,13 +177,10 @@ oppia.controller('SettingsTab', [
       ExplorationWarningsService.updateWarnings();
     };
 
-    /** ******************************************
-    * Methods for enabling advanced features.
-    ********************************************/
-    $scope.areParametersEnabled = (
-      ExplorationAdvancedFeaturesService.areParametersEnabled);
-    $scope.enableParameters = (
-      ExplorationAdvancedFeaturesService.enableParameters);
+    // Methods for enabling advanced features.
+    $scope.areParametersEnabled =
+      ExplorationFeaturesService.areParametersEnabled;
+    $scope.enableParameters = ExplorationFeaturesService.enableParameters;
 
     $scope.isAutomaticTextToSpeechEnabled = (
       ExplorationAutomaticTextToSpeechService.isAutomaticTextToSpeechEnabled);
@@ -191,9 +192,7 @@ oppia.controller('SettingsTab', [
     $scope.toggleCorrectnessFeedback = (
       ExplorationCorrectnessFeedbackService.toggleCorrectnessFeedback);
 
-    /** ******************************************
-    * Methods for rights management.
-    ********************************************/
+    // Methods for rights management.
     $scope.openEditRolesForm = function() {
       $scope.isRolesFormOpen = true;
       $scope.newMemberUsername = '';
@@ -217,10 +216,7 @@ oppia.controller('SettingsTab', [
         !ExplorationRightsService.viewableIfPrivate());
     };
 
-    /** ******************************************
-    * Methods for notifications muting.
-    ********************************************/
-
+    // Methods for muting notifications.
     $scope.muteFeedbackNotifications = function() {
       UserEmailPreferencesService.setFeedbackNotificationPreferences(true);
     };
@@ -235,9 +231,7 @@ oppia.controller('SettingsTab', [
       UserEmailPreferencesService.setSuggestionNotificationPreferences(false);
     };
 
-    /** ******************************************
-    * Methods relating to control buttons.
-    ********************************************/
+    // Methods relating to control buttons.
     $scope.previewSummaryTile = function() {
       AlertsService.clearWarnings();
       $uibModal.open({

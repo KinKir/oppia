@@ -17,10 +17,10 @@
  */
 
 oppia.controller('Profile', [
-  '$scope', '$http', '$rootScope', '$log', 'DateTimeFormatService',
-  'UrlInterpolationService',
-  function($scope, $http, $rootScope, $log, DateTimeFormatService,
-      UrlInterpolationService) {
+  '$http', '$log', '$rootScope', '$scope', '$window', 'DateTimeFormatService',
+  'UrlInterpolationService', 'UserService',
+  function($http, $log, $rootScope, $scope, $window, DateTimeFormatService,
+      UrlInterpolationService, UserService) {
     var profileDataUrl = '/profilehandler/data/' + GLOBALS.PROFILE_USERNAME;
     var DEFAULT_PROFILE_PICTURE_URL = UrlInterpolationService.getStaticImageUrl(
       '/general/no_profile_picture.png');
@@ -88,7 +88,15 @@ oppia.controller('Profile', [
 
       $scope.changeSubscriptionStatus = function() {
         if ($scope.userNotLoggedIn) {
-          window.location.href = GLOBALS.loginUrl;
+          UserService.getLoginUrlAsync().then(
+            function(loginUrl) {
+              if (loginUrl) {
+                window.location.href = loginUrl;
+              } else {
+                throw Error('Login url not found.');
+              }
+            }
+          );
         } else {
           if (!$scope.isAlreadySubscribed) {
             $scope.isAlreadySubscribed = true;

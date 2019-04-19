@@ -15,8 +15,10 @@
 """Tests for the admin page."""
 
 from core.controllers import base
+from core.domain import collection_services
 from core.domain import exp_domain
 from core.domain import exp_services
+from core.domain import search_services
 from core.domain import stats_domain
 from core.domain import stats_services
 from core.tests import test_utils
@@ -38,26 +40,23 @@ class AdminIntegrationTest(test_utils.GenericTestBase):
     def test_admin_page_rights(self):
         """Test access rights to the admin page."""
 
-        response = self.testapp.get('/admin')
-        self.assertEqual(response.status_int, 302)
+        self.get_html_response('/admin', expected_status_int=302)
 
         # Login as a non-admin.
         self.login(self.EDITOR_EMAIL)
-        response = self.testapp.get('/admin', expect_errors=True)
-        self.assertEqual(response.status_int, 401)
+        self.get_html_response('/admin', expected_status_int=401)
         self.logout()
 
         # Login as an admin.
         self.login(self.ADMIN_EMAIL, is_super_admin=True)
-        response = self.testapp.get('/admin')
-        self.assertEqual(response.status_int, 200)
+        self.get_html_response('/admin')
         self.logout()
 
     def test_change_configuration_property(self):
         """Test that configuration properties can be changed."""
 
         self.login(self.ADMIN_EMAIL, is_super_admin=True)
-        response = self.testapp.get('/admin')
+        response = self.get_html_response('/admin')
         csrf_token = self.get_csrf_token_from_response(response)
 
         response_dict = self.get_json('/adminhandler')
@@ -87,11 +86,11 @@ class AdminIntegrationTest(test_utils.GenericTestBase):
         """Test that config property values are changed correctly."""
         new_config_value = 'new_config_value'
 
-        response = self.testapp.get('/about')
+        response = self.get_html_response('/about')
         self.assertNotIn(new_config_value, response.body)
 
         self.login(self.ADMIN_EMAIL, is_super_admin=True)
-        response = self.testapp.get('/admin')
+        response = self.get_html_response('/admin')
         csrf_token = self.get_csrf_token_from_response(response)
         self.post_json(
             '/adminhandler', {
@@ -101,17 +100,17 @@ class AdminIntegrationTest(test_utils.GenericTestBase):
                 }
             }, csrf_token=csrf_token)
 
-        response = self.testapp.get('/about')
+        response = self.get_html_response('/about')
         self.assertIn(new_config_value, response.body)
 
 
 class GenerateDummyExplorationsTest(test_utils.GenericTestBase):
-    """ Test the conditions for generation of dummy explorations."""
+    """Test the conditions for generation of dummy explorations."""
 
     def test_generate_count_greater_than_publish_count(self):
         self.signup(self.ADMIN_EMAIL, self.ADMIN_USERNAME)
         self.login(self.ADMIN_EMAIL, is_super_admin=True)
-        response = self.testapp.get('/admin')
+        response = self.get_html_response('/admin')
         csrf_token = self.get_csrf_token_from_response(response)
         self.post_json(
             '/adminhandler', {
@@ -127,7 +126,7 @@ class GenerateDummyExplorationsTest(test_utils.GenericTestBase):
     def test_generate_count_equal_to_publish_count(self):
         self.signup(self.ADMIN_EMAIL, self.ADMIN_USERNAME)
         self.login(self.ADMIN_EMAIL, is_super_admin=True)
-        response = self.testapp.get('/admin')
+        response = self.get_html_response('/admin')
         csrf_token = self.get_csrf_token_from_response(response)
         self.post_json(
             '/adminhandler', {
@@ -143,7 +142,7 @@ class GenerateDummyExplorationsTest(test_utils.GenericTestBase):
     def test_generate_count_less_than_publish_count(self):
         self.signup(self.ADMIN_EMAIL, self.ADMIN_USERNAME)
         self.login(self.ADMIN_EMAIL, is_super_admin=True)
-        response = self.testapp.get('/admin')
+        response = self.get_html_response('/admin')
         csrf_token = self.get_csrf_token_from_response(response)
         generated_exps_response = self.post_json(
             '/adminhandler', {
@@ -151,9 +150,7 @@ class GenerateDummyExplorationsTest(test_utils.GenericTestBase):
                 'num_dummy_exps_to_generate': 2,
                 'num_dummy_exps_to_publish': 5
             },
-            csrf_token=csrf_token,
-            expect_errors=True,
-            expected_status_int=400)
+            csrf_token=csrf_token, expected_status_int=400)
         self.assertEqual(generated_exps_response['status_code'], 400)
         generated_exps = exp_services.get_all_exploration_summaries()
         published_exps = exp_services.get_recently_published_exp_summaries(5)
@@ -185,12 +182,12 @@ class AdminRoleHandlerTest(test_utils.GenericTestBase):
             response_dict, {'user1': feconf.ROLE_ID_EXPLORATION_EDITOR})
 
         # Check role correctly gets updated.
-        response = self.testapp.get(feconf.ADMIN_URL)
+        response = self.get_html_response(feconf.ADMIN_URL)
         csrf_token = self.get_csrf_token_from_response(response)
         response_dict = self.post_json(
             feconf.ADMIN_ROLE_HANDLER_URL,
             {'role': feconf.ROLE_ID_MODERATOR, 'username': username},
-            csrf_token=csrf_token, expect_errors=False,
+            csrf_token=csrf_token,
             expected_status_int=200)
         self.assertEqual(response_dict, {})
 
@@ -210,15 +207,15 @@ class AdminRoleHandlerTest(test_utils.GenericTestBase):
         response = self.get_json(
             feconf.ADMIN_ROLE_HANDLER_URL,
             params={'method': 'username', 'username': username},
-            expected_status_int=400, expect_errors=True)
+            expected_status_int=400)
 
         # Trying to update role of non-existent user.
-        response = self.testapp.get(feconf.ADMIN_URL)
+        response = self.get_html_response(feconf.ADMIN_URL)
         csrf_token = self.get_csrf_token_from_response(response)
         response = self.post_json(
             feconf.ADMIN_ROLE_HANDLER_URL,
             {'role': feconf.ROLE_ID_MODERATOR, 'username': username},
-            csrf_token=csrf_token, expect_errors=True,
+            csrf_token=csrf_token,
             expected_status_int=400)
 
 
@@ -295,8 +292,36 @@ class DataExtractionQueryHandlerTests(test_utils.GenericTestBase):
 
         response = self.get_json(
             '/explorationdataextractionhandler', params=payload,
-            expected_status_int=400, expect_errors=True)
+            expected_status_int=400)
 
         self.assertEqual(
             response['error'],
             'Exploration \'exp\' does not have \'state name\' state.')
+
+
+class ClearSearchIndexTest(test_utils.GenericTestBase):
+    """Tests that search index gets cleared."""
+
+    def test_clear_search_index(self):
+        exp_services.load_demo('0')
+        result_explorations = search_services.search_explorations(
+            'Welcome', 2)[0]
+        self.assertEqual(result_explorations, ['0'])
+        collection_services.load_demo('0')
+        result_collections = search_services.search_collections('Welcome', 2)[0]
+        self.assertEqual(result_collections, ['0'])
+        self.signup(self.ADMIN_EMAIL, self.ADMIN_USERNAME)
+        self.login(self.ADMIN_EMAIL, is_super_admin=True)
+        response = self.get_html_response('/admin')
+        csrf_token = self.get_csrf_token_from_response(response)
+        generated_exps_response = self.post_json(
+            '/adminhandler', {
+                'action': 'clear_search_index'
+            },
+            csrf_token=csrf_token)
+        self.assertEqual(generated_exps_response, {})
+        result_explorations = search_services.search_explorations(
+            'Welcome', 2)[0]
+        self.assertEqual(result_explorations, [])
+        result_collections = search_services.search_collections('Welcome', 2)[0]
+        self.assertEqual(result_collections, [])

@@ -54,7 +54,15 @@ describe('Editable topic backend API service', function() {
       subtopic_page: {
         id: 'topicId-1',
         topicId: 'topicId',
-        html_data: '<p>Data</p>',
+        page_contents: {
+          subtitled_html: {
+            html: '<p>Data</p>',
+            content_id: 'content'
+          },
+          content_ids_to_audio_translations: {
+            content: {}
+          },
+        },
         language_code: 'en'
       }
     };
@@ -122,6 +130,7 @@ describe('Editable topic backend API service', function() {
     function() {
       var successHandler = jasmine.createSpy('success');
       var failHandler = jasmine.createSpy('fail');
+      var topic = null;
 
       // Loading a topic the first time should fetch it from the backend.
       $httpBackend.expect('GET', '/topic_editor_handler/data/0').respond(

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Tests for the profile page."""
+import re
 
 from constants import constants
 from core.domain import exp_domain
@@ -29,8 +30,7 @@ class SignupTests(test_utils.GenericTestBase):
 
     def test_signup_page_does_not_have_top_right_menu(self):
         self.login(self.EDITOR_EMAIL)
-        response = self.testapp.get(feconf.SIGNUP_URL)
-        self.assertEqual(response.status_int, 200)
+        response = self.get_html_response(feconf.SIGNUP_URL)
         # Sign in can't be inside an html tag, but can appear inside js code.
         response.mustcontain(no=['Logout'])
         self.logout()
@@ -39,31 +39,72 @@ class SignupTests(test_utils.GenericTestBase):
         exp_services.load_demo('0')
 
         self.login(self.EDITOR_EMAIL)
-        response = self.testapp.get(feconf.SIGNUP_URL)
-        self.assertEqual(response.status_int, 200)
-        response = self.testapp.get('/create/0')
-        self.assertEqual(response.status_int, 302)
+        response = self.get_html_response(feconf.SIGNUP_URL)
+        response = self.get_html_response('/create/0', expected_status_int=302)
         self.assertIn('Logout', response.headers['location'])
         self.assertIn('create', response.headers['location'])
 
         self.logout()
 
+    def test_to_check_url_redirection_in_signup(self):
+        """To validate the redirections from return_url."""
+        self.login(self.EDITOR_EMAIL)
+        response = self.get_html_response(feconf.SIGNUP_URL)
+        csrf_token = self.get_csrf_token_from_response(response)
+
+        # Registering this user fully.
+        self.post_json(
+            feconf.SIGNUP_DATA_URL,
+            {'username': 'abc', 'agreed_to_terms': True},
+            csrf_token=csrf_token)
+
+        def strip_domain_from_location_header(url):
+            """To strip the domain form the location url."""
+            splitted_url = re.match(r'(http[s]?:\/\/)?([^\/\s]+\/)(.*)', url)
+            return splitted_url.group(3)
+
+        response = self.get_html_response(
+            '/signup?return_url=https://google.com', expected_status_int=302)
+        self.assertEqual('', strip_domain_from_location_header(
+            response.headers['location']))
+
+        response = self.get_html_response(
+            '/signup?return_url=//google.com', expected_status_int=302)
+        self.assertEqual('', strip_domain_from_location_header(
+            response.headers['location']))
+
+        response = self.get_html_response(
+            '/signup?return_url=/page#hello', expected_status_int=302)
+        self.assertEqual('page', strip_domain_from_location_header(
+            response.headers['location']))
+
+        response = self.get_html_response(
+            '/signup?return_url=/page/hello', expected_status_int=302)
+        self.assertEqual('page/hello', strip_domain_from_location_header(
+            response.headers['location']))
+
+        response = self.get_html_response(
+            '/signup?return_url=/page/hello?id=tests', expected_status_int=302)
+        self.assertEqual(
+            'page/hello?id=tests', strip_domain_from_location_header(
+                response.headers['location']))
+
+        self.logout()
+
     def test_accepting_terms_is_handled_correctly(self):
         self.login(self.EDITOR_EMAIL)
-        response = self.testapp.get(feconf.SIGNUP_URL)
+        response = self.get_html_response(feconf.SIGNUP_URL)
         csrf_token = self.get_csrf_token_from_response(response)
 
         response_dict = self.post_json(
             feconf.SIGNUP_DATA_URL, {'agreed_to_terms': False},
-            csrf_token=csrf_token, expect_errors=True, expected_status_int=400)
-        self.assertEqual(response_dict['status_code'], 400)
+            csrf_token=csrf_token, expected_status_int=400)
         self.assertIn('you will need to accept', response_dict['error'])
 
         response_dict = self.post_json(
             feconf.SIGNUP_DATA_URL,
             {'agreed_to_terms': 'Hasta la vista!'},
-            csrf_token=csrf_token, expect_errors=True, expected_status_int=400)
-        self.assertEqual(response_dict['status_code'], 400)
+            csrf_token=csrf_token, expected_status_int=400)
         self.assertIn('you will need to accept', response_dict['error'])
 
         self.post_json(
@@ -76,35 +117,31 @@ class SignupTests(test_utils.GenericTestBase):
     def test_username_is_handled_correctly(self):
         self.login(self.EDITOR_EMAIL)
 
-        response = self.testapp.get(feconf.SIGNUP_URL)
+        response = self.get_html_response(feconf.SIGNUP_URL)
         csrf_token = self.get_csrf_token_from_response(response)
 
         response_dict = self.post_json(
             feconf.SIGNUP_DATA_URL, {'agreed_to_terms': True},
-            csrf_token=csrf_token, expect_errors=True, expected_status_int=400)
-        self.assertEqual(response_dict['status_code'], 400)
+            csrf_token=csrf_token, expected_status_int=400)
         self.assertIn('Empty username supplied', response_dict['error'])
 
         response_dict = self.post_json(
             feconf.SIGNUP_DATA_URL,
             {'username': '', 'agreed_to_terms': True},
-            csrf_token=csrf_token, expect_errors=True, expected_status_int=400)
-        self.assertEqual(response_dict['status_code'], 400)
+            csrf_token=csrf_token, expected_status_int=400)
         self.assertIn('Empty username supplied', response_dict['error'])
 
         response_dict = self.post_json(
             feconf.SIGNUP_DATA_URL,
             {'username': '!a!', 'agreed_to_terms': True},
-            csrf_token=csrf_token, expect_errors=True, expected_status_int=400)
-        self.assertEqual(response_dict['status_code'], 400)
+            csrf_token=csrf_token, expected_status_int=400)
         self.assertIn(
             'can only have alphanumeric characters', response_dict['error'])
 
         response_dict = self.post_json(
             feconf.SIGNUP_DATA_URL,
             {'username': self.UNICODE_TEST_STRING, 'agreed_to_terms': True},
-            csrf_token=csrf_token, expect_errors=True, expected_status_int=400)
-        self.assertEqual(response_dict['status_code'], 400)
+            csrf_token=csrf_token, expected_status_int=400)
         self.assertIn(
             'can only have alphanumeric characters', response_dict['error'])
 
@@ -117,7 +154,7 @@ class SignupTests(test_utils.GenericTestBase):
 
     def test_default_dashboard_for_new_users(self):
         self.login(self.EDITOR_EMAIL)
-        response = self.testapp.get(feconf.SIGNUP_URL)
+        response = self.get_html_response(feconf.SIGNUP_URL)
         csrf_token = self.get_csrf_token_from_response(response)
 
         # This user should have the creator dashboard as default.
@@ -136,7 +173,7 @@ class SignupTests(test_utils.GenericTestBase):
         self.logout()
 
         self.login(self.VIEWER_EMAIL)
-        response = self.testapp.get(feconf.SIGNUP_URL)
+        response = self.get_html_response(feconf.SIGNUP_URL)
         csrf_token = self.get_csrf_token_from_response(response)
 
         # This user should have the learner dashboard as default.
@@ -161,7 +198,7 @@ class UsernameCheckHandlerTests(test_utils.GenericTestBase):
         self.signup('abc@example.com', username='abc')
 
         self.login(self.EDITOR_EMAIL)
-        response = self.testapp.get(feconf.SIGNUP_URL)
+        response = self.get_html_response(feconf.SIGNUP_URL)
         csrf_token = self.get_csrf_token_from_response(response)
 
         response_dict = self.post_json(
@@ -182,16 +219,14 @@ class UsernameCheckHandlerTests(test_utils.GenericTestBase):
 
         response_dict = self.post_json(
             feconf.USERNAME_CHECK_DATA_URL, {'username': '!!!INVALID!!!'},
-            csrf_token=csrf_token, expect_errors=True, expected_status_int=400)
-        self.assertEqual(response_dict['status_code'], 400)
+            csrf_token=csrf_token, expected_status_int=400)
         self.assertIn(
             'can only have alphanumeric characters', response_dict['error'])
 
         response_dict = self.post_json(
             feconf.USERNAME_CHECK_DATA_URL,
             {'username': self.UNICODE_TEST_STRING},
-            csrf_token=csrf_token, expect_errors=True, expected_status_int=400)
-        self.assertEqual(response_dict['status_code'], 400)
+            csrf_token=csrf_token, expected_status_int=400)
         self.assertIn(
             'can only have alphanumeric characters', response_dict['error'])
 
@@ -202,7 +237,7 @@ class EmailPreferencesTests(test_utils.GenericTestBase):
 
     def test_user_not_setting_email_prefs_on_signup(self):
         self.login(self.EDITOR_EMAIL)
-        response = self.testapp.get(feconf.SIGNUP_URL)
+        response = self.get_html_response(feconf.SIGNUP_URL)
         csrf_token = self.get_csrf_token_from_response(response)
         self.post_json(
             feconf.SIGNUP_DATA_URL,
@@ -239,7 +274,7 @@ class EmailPreferencesTests(test_utils.GenericTestBase):
 
     def test_user_allowing_emails_on_signup(self):
         self.login(self.EDITOR_EMAIL)
-        response = self.testapp.get(feconf.SIGNUP_URL)
+        response = self.get_html_response(feconf.SIGNUP_URL)
         csrf_token = self.get_csrf_token_from_response(response)
         self.post_json(
             feconf.SIGNUP_DATA_URL,
@@ -276,7 +311,7 @@ class EmailPreferencesTests(test_utils.GenericTestBase):
 
     def test_user_disallowing_emails_on_signup(self):
         self.login(self.EDITOR_EMAIL)
-        response = self.testapp.get(feconf.SIGNUP_URL)
+        response = self.get_html_response(feconf.SIGNUP_URL)
         csrf_token = self.get_csrf_token_from_response(response)
         self.post_json(
             feconf.SIGNUP_DATA_URL,
@@ -320,7 +355,7 @@ class EmailPreferencesTests(test_utils.GenericTestBase):
         self.signup(self.EDITOR_EMAIL, username=self.EDITOR_USERNAME)
         editor_id = self.get_user_id_from_email(self.EDITOR_EMAIL)
         self.login(self.EDITOR_EMAIL)
-        response = self.testapp.get('/preferences')
+        response = self.get_html_response('/preferences')
         csrf_token = self.get_csrf_token_from_response(response)
 
         payload = {
@@ -405,10 +440,9 @@ class ProfileLinkTests(test_utils.GenericTestBase):
     PROFILE_PIC_URL = '/preferenceshandler/profile_picture_by_username/'
 
     def test_get_profile_picture_invalid_username(self):
-        response = self.testapp.get(
-            '%s%s' % (self.PROFILE_PIC_URL, self.USERNAME), expect_errors=True
-        )
-        self.assertEqual(response.status_int, 404)
+        self.get_json(
+            '%s%s' % (self.PROFILE_PIC_URL, self.USERNAME),
+            expected_status_int=404)
 
     def test_get_profile_picture_valid_username(self):
         self.signup(self.EMAIL, self.USERNAME)
@@ -426,7 +460,7 @@ class ProfileDataHandlerTests(test_utils.GenericTestBase):
     def test_preference_page_updates(self):
         self.signup(self.EDITOR_EMAIL, username=self.EDITOR_USERNAME)
         self.login(self.EDITOR_EMAIL)
-        response = self.testapp.get('/preferences')
+        response = self.get_html_response('/preferences')
         csrf_token = self.get_csrf_token_from_response(response)
         original_preferences = self.get_json('/preferenceshandler/data')
         self.assertEqual(
@@ -454,7 +488,7 @@ class ProfileDataHandlerTests(test_utils.GenericTestBase):
     def test_profile_data_is_independent_of_currently_logged_in_user(self):
         self.signup(self.EDITOR_EMAIL, username=self.EDITOR_USERNAME)
         self.login(self.EDITOR_EMAIL)
-        response = self.testapp.get('/preferences')
+        response = self.get_html_response('/preferences')
         csrf_token = self.get_csrf_token_from_response(response)
         self.put_json(
             '/preferenceshandler/data',
@@ -468,7 +502,7 @@ class ProfileDataHandlerTests(test_utils.GenericTestBase):
 
         self.signup(self.VIEWER_EMAIL, username=self.VIEWER_USERNAME)
         self.login(self.VIEWER_EMAIL)
-        response = self.testapp.get('/preferences')
+        response = self.get_html_response('/preferences')
         csrf_token = self.get_csrf_token_from_response(response)
         self.put_json(
             '/preferenceshandler/data',
@@ -628,8 +662,7 @@ class SiteLanguageHandlerTests(test_utils.GenericTestBase):
         self.signup(self.EDITOR_EMAIL, self.EDITOR_USERNAME)
         language_code = 'es'
         self.login(self.EDITOR_EMAIL)
-        response = self.testapp.get('/preferences')
-        self.assertEqual(response.status_int, 200)
+        response = self.get_html_response('/preferences')
         csrf_token = self.get_csrf_token_from_response(response)
         self.put_json(
             '/preferenceshandler/data', {
@@ -654,8 +687,7 @@ class LongUserBioHandlerTests(test_utils.GenericTestBase):
     def test_userbio_within_limit(self):
         self.signup(self.EMAIL_A, self.USERNAME_A)
         self.login(self.EMAIL_A)
-        response = self.testapp.get('/preferences')
-        self.assertEqual(response.status_int, 200)
+        response = self.get_html_response('/preferences')
         csrf_token = self.get_csrf_token_from_response(response)
         self.put_json(
             '/preferenceshandler/data', {
@@ -671,17 +703,14 @@ class LongUserBioHandlerTests(test_utils.GenericTestBase):
     def test_user_bio_exceeds_limit(self):
         self.signup(self.EMAIL_B, self.USERNAME_B)
         self.login(self.EMAIL_B)
-        response = self.testapp.get('/preferences')
-        self.assertEqual(response.status_int, 200)
+        response = self.get_html_response('/preferences')
         csrf_token = self.get_csrf_token_from_response(response)
         user_bio_response = self.put_json(
             '/preferenceshandler/data', {
                 'update_type': 'user_bio',
                 'data': 'I am not within 2000 char limit' * 200
             },
-            csrf_token=csrf_token,
-            expect_errors=True,
-            expected_status_int=400)
+            csrf_token=csrf_token, expected_status_int=400)
         self.assertEqual(user_bio_response['status_code'], 400)
         self.assertIn('User bio exceeds maximum character limit: 2000',
                       user_bio_response['error'])
@@ -700,11 +729,11 @@ class UserInfoHandlerTests(test_utils.GenericTestBase):
         self.assertDictContainsSubset({
             'is_moderator': False,
             'is_admin': False,
+            'is_topic_manager': False,
             'is_super_admin': False,
             'can_create_collections': False,
             'username': self.EDITOR_USERNAME,
             'user_is_logged_in': True}, json_response)
         self.logout()
 
-        self.get_json('/userinfohandler', expect_errors=True,
-                      expected_status_int=401)
+        self.get_json('/userinfohandler', expected_status_int=401)

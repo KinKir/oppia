@@ -17,15 +17,13 @@
  */
 
 oppia.factory('SkillEditorRoutingService', [
-  '$rootScope', '$location', '$window', '$timeout', '$interval',
+  '$interval', '$location', '$rootScope', '$timeout', '$window',
   function(
-      $rootScope, $location, $window, $timeout, $interval) {
+      $interval, $location, $rootScope, $timeout, $window) {
     var MAIN_TAB = 'main';
     var QUESTIONS_TAB = 'questions';
 
-    var _tabs = {
-      active: MAIN_TAB
-    };
+    var activeTab = MAIN_TAB;
 
     // When the URL path changes, reroute to the appropriate tab in the
     // skill editor page.
@@ -42,15 +40,18 @@ oppia.factory('SkillEditorRoutingService', [
       }
 
       if (newPath === '/') {
-        _tabs.active = MAIN_TAB;
+        activeTab = MAIN_TAB;
       } else if (newPath === '/questions') {
-        _tabs.active = QUESTIONS_TAB;
+        activeTab = QUESTIONS_TAB;
       }
     });
 
     var SkillEditorRouterService = {
+      getActiveTabName: function() {
+        return activeTab;
+      },
       getTabStatuses: function() {
-        return _tabs;
+        return activeTab;
       },
       navigateToMainTab: function() {
         $location.path('');

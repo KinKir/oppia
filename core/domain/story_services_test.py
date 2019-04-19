@@ -424,10 +424,14 @@ class StoryProgressUnitTests(StoryServicesUnitTests):
     """
 
     def _get_progress_model(self, user_id, STORY_ID):
+        """Returns the StoryProgressModel corresponding to the story id and user
+        id.
+        """
         return user_models.StoryProgressModel.get(
             user_id, STORY_ID, strict=False)
 
     def _record_completion(self, user_id, STORY_ID, node_id):
+        """Records the completion of a node in the context of a story."""
         story_services.record_completed_node_in_story_context(
             user_id, STORY_ID, node_id)
 
@@ -507,6 +511,15 @@ class StoryProgressUnitTests(StoryServicesUnitTests):
                     self.owner_id, self.STORY_1_ID)):
             self.assertEqual(
                 completed_node.to_dict(), self.nodes[ind].to_dict())
+
+    def test_get_pending_nodes_in_story(self):
+        self._record_completion(self.owner_id, self.STORY_1_ID, self.NODE_ID_1)
+
+        for _, pending_node in enumerate(
+                story_services.get_pending_nodes_in_story(
+                    self.owner_id, self.STORY_1_ID)):
+            self.assertEqual(
+                pending_node.to_dict(), self.nodes[1].to_dict())
 
     def test_record_completed_node_in_story_context(self):
         # Ensure that node completed within the context of a story are

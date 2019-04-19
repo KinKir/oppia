@@ -26,14 +26,16 @@ oppia.directive('unresolvedAnswersOverview', [
         'unresolved_answers_overview_directive.html'),
       controller: [
         '$rootScope', '$scope', '$uibModal', 'EditabilityService',
-        'ExplorationRightsService', 'ExplorationStatesService', 'IssuesService',
-        'StateEditorService', 'StateInteractionIdService',
-        'StateTopAnswersStatsService', 'INTERACTION_SPECS',
+        'ExplorationRightsService', 'ExplorationStatesService',
+        'ImprovementsService', 'StateEditorService',
+        'StateInteractionIdService', 'StateTopAnswersStatsService',
+        'INTERACTION_SPECS',
         function(
             $rootScope, $scope, $uibModal, EditabilityService,
-            ExplorationRightsService, ExplorationStatesService, IssuesService,
-            StateEditorService, StateInteractionIdService,
-            StateTopAnswersStatsService, INTERACTION_SPECS) {
+            ExplorationRightsService, ExplorationStatesService,
+            ImprovementsService, StateEditorService,
+            StateInteractionIdService, StateTopAnswersStatsService,
+            INTERACTION_SPECS) {
           var MAXIMUM_UNRESOLVED_ANSWERS = 5;
           var MINIMUM_UNRESOLVED_ANSWER_FREQUENCY = 2;
 
@@ -43,9 +45,9 @@ oppia.directive('unresolvedAnswersOverview', [
             GLOBALS.SHOW_TRAINABLE_UNRESOLVED_ANSWERS);
 
           var isStateRequiredToBeResolved = function(stateName) {
-            return (
-              IssuesService.isStateForcedToResolveOutstandingUnaddressedAnswers(
-                ExplorationStatesService.getState(stateName)));
+            return ImprovementsService
+              .isStateForcedToResolveOutstandingUnaddressedAnswers(
+                ExplorationStatesService.getState(stateName));
           };
 
           $scope.isUnresolvedAnswersOverviewShown = function() {
@@ -83,8 +85,8 @@ oppia.directive('unresolvedAnswersOverview', [
                 'teach_oppia_modal_directive.html'),
               backdrop: true,
               controller: [
-                '$filter', '$http', '$injector', '$scope', '$uibModalInstance',
-                'AlertsService', 'AngularNameService',
+                '$filter', '$http', '$injector', '$log', '$scope',
+                '$uibModalInstance', 'AlertsService', 'AngularNameService',
                 'AnswerClassificationService', 'ContextService',
                 'ExplorationHtmlFormatterService', 'ExplorationStatesService',
                 'StateCustomizationArgsService', 'StateEditorService',
@@ -93,8 +95,8 @@ oppia.directive('unresolvedAnswersOverview', [
                 'DEFAULT_OUTCOME_CLASSIFICATION', 'EXPLICIT_CLASSIFICATION',
                 'TRAINING_DATA_CLASSIFICATION',
                 function(
-                    $filter, $http, $injector, $scope, $uibModalInstance,
-                    AlertsService, AngularNameService,
+                    $filter, $http, $injector, $log, $scope,
+                    $uibModalInstance, AlertsService, AngularNameService,
                     AnswerClassificationService, ContextService,
                     ExplorationHtmlFormatterService, ExplorationStatesService,
                     StateCustomizationArgsService, StateEditorService,
@@ -176,7 +178,7 @@ oppia.directive('unresolvedAnswersOverview', [
                   };
 
                   $scope.confirmAnswerAssignment = function(answerIndex) {
-                    answer = $scope.unresolvedAnswers[answerIndex];
+                    var answer = $scope.unresolvedAnswers[answerIndex];
                     $scope.unresolvedAnswers.splice(answerIndex, 1);
 
                     var classificationType = (

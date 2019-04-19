@@ -43,27 +43,32 @@ oppia.constant('TOPIC_PROPERTY_LANGUAGE_CODE', 'language_code');
 
 oppia.constant('SUBTOPIC_PROPERTY_TITLE', 'title');
 
-oppia.constant('SUBTOPIC_PAGE_PROPERTY_HTML_DATA', 'html_data');
+oppia.constant(
+  'SUBTOPIC_PAGE_PROPERTY_PAGE_CONTENTS_HTML', 'page_contents_html');
+oppia.constant(
+  'SUBTOPIC_PAGE_PROPERTY_PAGE_CONTENTS_AUDIO', 'page_contents_audio');
 
 oppia.factory('TopicUpdateService', [
   'ChangeObjectFactory', 'UndoRedoService',
-  'CMD_ADD_SUBTOPIC', 'CMD_DELETE_SUBTOPIC',
-  'CMD_ADD_UNCATEGORIZED_SKILL_ID', 'CMD_REMOVE_UNCATEGORIZED_SKILL_ID',
-  'CMD_MOVE_SKILL_ID_TO_SUBTOPIC', 'CMD_REMOVE_SKILL_ID_FROM_SUBTOPIC',
-  'CMD_UPDATE_TOPIC_PROPERTY', 'CMD_UPDATE_SUBTOPIC_PROPERTY',
-  'CMD_UPDATE_SUBTOPIC_PAGE_PROPERTY', 'TOPIC_PROPERTY_NAME',
-  'TOPIC_PROPERTY_DESCRIPTION', 'TOPIC_PROPERTY_CANONICAL_STORY_IDS',
-  'TOPIC_PROPERTY_ADDITIONAL_STORY_IDS', 'TOPIC_PROPERTY_LANGUAGE_CODE',
-  'SUBTOPIC_PROPERTY_TITLE', 'SUBTOPIC_PAGE_PROPERTY_HTML_DATA', function(
+  'CMD_ADD_SUBTOPIC', 'CMD_ADD_UNCATEGORIZED_SKILL_ID',
+  'CMD_DELETE_SUBTOPIC', 'CMD_MOVE_SKILL_ID_TO_SUBTOPIC',
+  'CMD_REMOVE_SKILL_ID_FROM_SUBTOPIC', 'CMD_REMOVE_UNCATEGORIZED_SKILL_ID',
+  'CMD_UPDATE_SUBTOPIC_PAGE_PROPERTY', 'CMD_UPDATE_SUBTOPIC_PROPERTY',
+  'CMD_UPDATE_TOPIC_PROPERTY', 'SUBTOPIC_PAGE_PROPERTY_PAGE_CONTENTS_AUDIO',
+  'SUBTOPIC_PAGE_PROPERTY_PAGE_CONTENTS_HTML', 'SUBTOPIC_PROPERTY_TITLE',
+  'TOPIC_PROPERTY_ADDITIONAL_STORY_IDS', 'TOPIC_PROPERTY_CANONICAL_STORY_IDS',
+  'TOPIC_PROPERTY_DESCRIPTION', 'TOPIC_PROPERTY_LANGUAGE_CODE',
+  'TOPIC_PROPERTY_NAME', function(
       ChangeObjectFactory, UndoRedoService,
-      CMD_ADD_SUBTOPIC, CMD_DELETE_SUBTOPIC,
-      CMD_ADD_UNCATEGORIZED_SKILL_ID, CMD_REMOVE_UNCATEGORIZED_SKILL_ID,
-      CMD_MOVE_SKILL_ID_TO_SUBTOPIC, CMD_REMOVE_SKILL_ID_FROM_SUBTOPIC,
-      CMD_UPDATE_TOPIC_PROPERTY, CMD_UPDATE_SUBTOPIC_PROPERTY,
-      CMD_UPDATE_SUBTOPIC_PAGE_PROPERTY, TOPIC_PROPERTY_NAME,
-      TOPIC_PROPERTY_DESCRIPTION, TOPIC_PROPERTY_CANONICAL_STORY_IDS,
-      TOPIC_PROPERTY_ADDITIONAL_STORY_IDS, TOPIC_PROPERTY_LANGUAGE_CODE,
-      SUBTOPIC_PROPERTY_TITLE, SUBTOPIC_PAGE_PROPERTY_HTML_DATA) {
+      CMD_ADD_SUBTOPIC, CMD_ADD_UNCATEGORIZED_SKILL_ID,
+      CMD_DELETE_SUBTOPIC, CMD_MOVE_SKILL_ID_TO_SUBTOPIC,
+      CMD_REMOVE_SKILL_ID_FROM_SUBTOPIC, CMD_REMOVE_UNCATEGORIZED_SKILL_ID,
+      CMD_UPDATE_SUBTOPIC_PAGE_PROPERTY, CMD_UPDATE_SUBTOPIC_PROPERTY,
+      CMD_UPDATE_TOPIC_PROPERTY, SUBTOPIC_PAGE_PROPERTY_PAGE_CONTENTS_AUDIO,
+      SUBTOPIC_PAGE_PROPERTY_PAGE_CONTENTS_HTML, SUBTOPIC_PROPERTY_TITLE,
+      TOPIC_PROPERTY_ADDITIONAL_STORY_IDS, TOPIC_PROPERTY_CANONICAL_STORY_IDS,
+      TOPIC_PROPERTY_DESCRIPTION, TOPIC_PROPERTY_LANGUAGE_CODE,
+      TOPIC_PROPERTY_NAME) {
     // Creates a change using an apply function, reverse function, a change
     // command and related parameters. The change is applied to a given
     // topic.
@@ -404,20 +409,38 @@ oppia.factory('TopicUpdateService', [
           });
       },
 
-      /**
-       * Changes the html data of a subtopic page and records the change in
-       * the undo/redo service.
-       */
-      setSubtopicPageHtmlData: function(subtopicPage, subtopicId, htmlData) {
-        var oldHtmlData = angular.copy(subtopicPage.getHtmlData());
+      setSubtopicPageContentsHtml: function(
+          subtopicPage, subtopicId, newSubtitledHtml) {
+        var oldSubtitledHtml = angular.copy(
+          subtopicPage.getPageContents().getSubtitledHtml());
         _applySubtopicPagePropertyChange(
-          subtopicPage, SUBTOPIC_PAGE_PROPERTY_HTML_DATA, subtopicId, htmlData,
-          oldHtmlData, function(changeDict, subtopicPage) {
+          subtopicPage, SUBTOPIC_PAGE_PROPERTY_PAGE_CONTENTS_HTML, subtopicId,
+          newSubtitledHtml.toBackendDict(), oldSubtitledHtml.toBackendDict(),
+          function(changeDict, subtopicPage) {
             // Apply.
-            subtopicPage.setHtmlData(htmlData);
+            subtopicPage.getPageContents().setSubtitledHtml(newSubtitledHtml);
           }, function(changeDict, subtopicPage) {
             // Undo.
-            subtopicPage.setHtmlData(oldHtmlData);
+            subtopicPage.getPageContents().setSubtitledHtml(oldSubtitledHtml);
+          });
+      },
+
+      setSubtopicPageContentsAudio: function(subtopicPage, subtopicId,
+          newContentIdsToAudioTranslations) {
+        var oldContentIdsToAudioTranslations = angular.copy(
+          subtopicPage.getPageContents().getContentIdsToAudioTranslations());
+        _applySubtopicPagePropertyChange(
+          subtopicPage, SUBTOPIC_PAGE_PROPERTY_PAGE_CONTENTS_AUDIO, subtopicId,
+          newContentIdsToAudioTranslations.toBackendDict(),
+          oldContentIdsToAudioTranslations.toBackendDict(),
+          function(changeDict, subtopicPage) {
+            // Apply.
+            subtopicPage.getPageContents().setContentIdsToAudioTranslations(
+              newContentIdsToAudioTranslations);
+          }, function(changeDict, subtopicPage) {
+            // Undo.
+            subtopicPage.getPageContents().setContentIdsToAudioTranslations(
+              oldContentIdsToAudioTranslations);
           });
       },
 
@@ -475,7 +498,7 @@ oppia.factory('TopicUpdateService', [
       addCanonicalStoryId: function(topic, storyId) {
         var oldCanonicalStoryIdsList = angular.copy(
           topic.getCanonicalStoryIds());
-        newCanonicalStoryIdsList = angular.copy(oldCanonicalStoryIdsList);
+        var newCanonicalStoryIdsList = angular.copy(oldCanonicalStoryIdsList);
         newCanonicalStoryIdsList.push(storyId);
         _applyTopicPropertyChange(
           topic, TOPIC_PROPERTY_CANONICAL_STORY_IDS, newCanonicalStoryIdsList,

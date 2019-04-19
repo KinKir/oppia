@@ -45,6 +45,10 @@ class BaseTopicViewerControllerTests(test_utils.GenericTestBase):
 
         self.topic = topic_domain.Topic.create_default_topic(
             self.topic_id, 'public_topic_name')
+        self.topic.uncategorized_skill_ids.append('skill_id_1')
+        self.topic.subtopics.append(topic_domain.Subtopic(
+            1, 'subtopic_name', ['skill_id_2']))
+        self.topic.next_subtopic_id = 2
         self.topic.canonical_story_ids.append(self.story_id)
         topic_services.save_new_topic(self.admin_id, self.topic)
 
@@ -59,26 +63,23 @@ class TopicViewerPageTests(BaseTopicViewerControllerTests):
 
     def test_any_user_can_access_topic_viewer_page(self):
         with self.swap(constants, 'ENABLE_NEW_STRUCTURE_PLAYERS', True):
-            response = self.testapp.get(
+            self.get_html_response(
                 '%s/%s' % (feconf.TOPIC_VIEWER_URL_PREFIX, 'public_topic_name'))
 
-            self.assertEqual(response.status_int, 200)
 
     def test_no_user_can_access_unpublished_topic_viewer_page(self):
         with self.swap(constants, 'ENABLE_NEW_STRUCTURE_PLAYERS', True):
-            response = self.testapp.get(
+            self.get_html_response(
                 '%s/%s' % (
                     feconf.TOPIC_VIEWER_URL_PREFIX, 'private_topic_name'),
-                expect_errors=True)
+                expected_status_int=404)
 
-            self.assertEqual(response.status_int, 404)
 
     def test_get_fails_when_new_structures_not_enabled(self):
         with self.swap(constants, 'ENABLE_NEW_STRUCTURE_PLAYERS', False):
-            response = self.testapp.get(
+            self.get_html_response(
                 '%s/%s' % (feconf.TOPIC_VIEWER_URL_PREFIX, 'public_topic_name'),
-                expect_errors=True)
-            self.assertEqual(response.status_int, 404)
+                expected_status_int=404)
 
 
 class TopicPageDataHandlerTests(BaseTopicViewerControllerTests):
@@ -94,13 +95,17 @@ class TopicPageDataHandlerTests(BaseTopicViewerControllerTests):
                     'title': self.story.title,
                     'description': self.story.description
                 }],
-                'additional_story_dicts': []
+                'additional_story_dicts': [],
+                'uncategorized_skill_ids': [u'skill_id_1'],
+                'subtopics': [{
+                    u'skill_ids': [u'skill_id_2'],
+                    u'id': 1,
+                    u'title': u'subtopic_name'}]
             }
             self.assertDictContainsSubset(expected_dict, json_response)
 
     def test_get_fails_when_new_structures_not_enabled(self):
         with self.swap(constants, 'ENABLE_NEW_STRUCTURE_PLAYERS', False):
-            response = self.testapp.get(
+            self.get_json(
                 '%s/%s' % (feconf.TOPIC_DATA_HANDLER, 'public_topic_name'),
-                expect_errors=True)
-            self.assertEqual(response.status_int, 404)
+                expected_status_int=404)

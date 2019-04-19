@@ -23,6 +23,8 @@ describe('GenerateContentIdService', function() {
     $provide.value('COMPONENT_NAME_WORKED_EXAMPLE', 'worked_example');
   }));
   var gcis = null;
+  var scitat = null;
+  var citatof = null;
   var citatDict = {
     content: {},
     default_outcome: {},
@@ -62,7 +64,7 @@ describe('GenerateContentIdService', function() {
       .toEqual('worked_example_2');
   });
 
-  it('should throw error for unknown content id', function(){
+  it('should throw error for unknown content id', function() {
     expect(function() {
       gcis.getNextId('xyz');
     }).toThrowError('Unknown component name provided.');

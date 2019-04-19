@@ -39,19 +39,6 @@ def create_login_url(slug):
             feconf.SIGNUP_URL, 'return_url', slug))
 
 
-def create_logout_url(slug):
-    """Creates a logout url.
-
-    Args:
-        slug: str. The URL to redirect to after logout.
-
-    Returns:
-        str. The correct logout URL that includes the page to redirect to.
-    """
-    logout_url = utils.set_url_query_parameter('/logout', 'return_url', slug)
-    return logout_url
-
-
 def get_current_user():
     """Returns the current user."""
     return users.get_current_user()
@@ -68,6 +55,7 @@ def get_user_id_from_email(email):
     Returns None if the email address does not correspond to a valid user id.
     """
     class _FakeUser(ndb.Model):
+        """A fake user class."""
         _use_memcache = False
         _use_cache = False
         user = ndb.UserProperty(required=True)

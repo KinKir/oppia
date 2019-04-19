@@ -88,8 +88,8 @@ var ExplorationEditorHistoryTab = function() {
       deselectTwoVersions: function(versionNumber1, versionNumber2) {
         // Array starts at 0.
         historyCheckboxSelector.count().then(function(totalVersionNumber) {
-          v1Position = totalVersionNumber - versionNumber1;
-          v2Position = totalVersionNumber - versionNumber2;
+          var v1Position = totalVersionNumber - versionNumber1;
+          var v2Position = totalVersionNumber - versionNumber2;
 
           expect(historyCheckboxSelector.get(v1Position).isDisplayed())
             .toBe(true);
@@ -109,8 +109,8 @@ var ExplorationEditorHistoryTab = function() {
       selectTwoVersions: function(versionNumber1, versionNumber2) {
         // Array starts at 0
         historyCheckboxSelector.count().then(function(totalVersionNumber) {
-          v1Position = totalVersionNumber - versionNumber1;
-          v2Position = totalVersionNumber - versionNumber2;
+          var v1Position = totalVersionNumber - versionNumber1;
+          var v2Position = totalVersionNumber - versionNumber2;
 
           expect(historyCheckboxSelector.get(v1Position).isDisplayed())
             .toBe(true);
@@ -146,7 +146,7 @@ var ExplorationEditorHistoryTab = function() {
           expect(states.length).toEqual(expectedStates.length);
           // Note: we need to compare this way because the state graph is
           // sometimes generated with states in different configurations.
-          states.forEach(function(element){
+          states.forEach(function(element) {
             expect(expectedStates).toContain(element);
           });
         });

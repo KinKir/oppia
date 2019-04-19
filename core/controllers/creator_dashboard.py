@@ -17,8 +17,8 @@ activities.
 """
 
 from constants import constants
+from core.controllers import acl_decorators
 from core.controllers import base
-from core.domain import acl_decorators
 from core.domain import collection_domain
 from core.domain import collection_services
 from core.domain import config_domain
@@ -67,8 +67,7 @@ class NotificationsDashboardPage(base.BaseHandler):
             'meta_description': feconf.CREATOR_DASHBOARD_PAGE_DESCRIPTION,
         })
         self.render_template(
-            'pages/notifications_dashboard/notifications_dashboard.html',
-            redirect_url_on_logout='/')
+            'pages/notifications_dashboard/notifications_dashboard.html')
 
 
 class NotificationsDashboardHandler(base.BaseHandler):
@@ -137,21 +136,16 @@ class CreatorDashboardPage(base.BaseHandler):
                 interaction_ids))
 
         self.values.update({
-            'allow_yaml_file_upload': feconf.ALLOW_YAML_FILE_UPLOAD,
             'DEFAULT_TWITTER_SHARE_MESSAGE_DASHBOARD': (
                 DEFAULT_TWITTER_SHARE_MESSAGE_DASHBOARD.value),
             'DEFAULT_OBJECT_VALUES': obj_services.get_default_object_values(),
             'INTERACTION_SPECS': interaction_registry.Registry.get_all_specs(),
-            'ALLOWED_INTERACTION_CATEGORIES': (
-                feconf.ALLOWED_INTERACTION_CATEGORIES),
             'additional_angular_modules': additional_angular_modules,
             'interaction_templates': jinja2.utils.Markup(
                 interaction_templates),
             'dependencies_html': jinja2.utils.Markup(dependencies_html)
         })
-        self.render_template(
-            'pages/creator_dashboard/creator_dashboard.html',
-            redirect_url_on_logout='/')
+        self.render_template('pages/creator_dashboard/creator_dashboard.html')
 
 
 class CreatorDashboardHandler(base.BaseHandler):
@@ -164,12 +158,29 @@ class CreatorDashboardHandler(base.BaseHandler):
         """Handles GET requests."""
 
         def _get_intro_card_color(category):
+            """Returns the intro card color according to the category.
+
+            Args:
+                category: str. The category of the lesson.
+
+            Returns:
+                str. The intro card color according to the category.
+            """
             return (
                 constants.CATEGORIES_TO_COLORS[category] if
                 category in constants.CATEGORIES_TO_COLORS else
                 constants.DEFAULT_COLOR)
 
         def _round_average_ratings(rating):
+            """Returns the rounded average rating to display on the creator
+            dashboard.
+
+            Args:
+                rating: float. The rating of the lesson.
+
+            Returns:
+                float. The rounded average value of rating.
+            """
             return round(rating, feconf.AVERAGE_RATINGS_DASHBOARD_PRECISION)
 
         # We need to do the filtering because some activities that were
@@ -403,7 +414,7 @@ class UploadExplorationHandler(base.BaseHandler):
         yaml_content = self.request.get('yaml_file')
 
         new_exploration_id = exp_services.get_new_exploration_id()
-        if feconf.ALLOW_YAML_FILE_UPLOAD:
+        if constants.ALLOW_YAML_FILE_UPLOAD:
             exp_services.save_new_exploration_from_yaml_and_assets(
                 self.user_id, yaml_content, new_exploration_id, [],
                 strip_audio_translations=True)

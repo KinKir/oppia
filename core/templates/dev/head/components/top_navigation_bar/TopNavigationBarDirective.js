@@ -29,15 +29,16 @@ oppia.directive('topNavigationBar', [
       controller: [
         '$scope', '$http', '$window', '$timeout', '$translate',
         'SidebarStatusService', 'LABEL_FOR_CLEARING_FOCUS', 'UserService',
-        'SiteAnalyticsService', 'WindowDimensionsService', 'DebouncerService',
-        'DeviceInfoService',
+        'SiteAnalyticsService', 'NavigationService', 'WindowDimensionsService',
+        'DebouncerService', 'DeviceInfoService', 'LOGOUT_URL',
         function(
             $scope, $http, $window, $timeout, $translate,
             SidebarStatusService, LABEL_FOR_CLEARING_FOCUS, UserService,
-            SiteAnalyticsService, WindowDimensionsService, DebouncerService,
-            DeviceInfoService) {
+            SiteAnalyticsService, NavigationService, WindowDimensionsService,
+            DebouncerService, DeviceInfoService, LOGOUT_URL) {
           $scope.isModerator = null;
           $scope.isAdmin = null;
+          $scope.isTopicManager = null;
           $scope.isSuperAdmin = null;
           $scope.userIsLoggedIn = null;
           $scope.username = '';
@@ -47,6 +48,7 @@ oppia.directive('topNavigationBar', [
             }
             $scope.isModerator = userInfo.isModerator();
             $scope.isAdmin = userInfo.isAdmin();
+            $scope.isTopicManager = userInfo.isTopicManager();
             $scope.isSuperAdmin = userInfo.isSuperAdmin();
             $scope.userIsLoggedIn = userInfo.isLoggedIn();
             $scope.username = userInfo.getUsername();
@@ -79,38 +81,29 @@ oppia.directive('topNavigationBar', [
           var NAV_MODE_SIGNUP = 'signup';
           var NAV_MODES_WITH_CUSTOM_LOCAL_NAV = [
             'create', 'explore', 'collection', 'topics_and_skills_dashboard',
-            'topic_editor', 'story_editor'];
-          $scope.currentUrl = window.location.pathname.split("/")[1];
+            'topic_editor', 'skill_editor', 'story_editor'];
+          $scope.currentUrl = window.location.pathname.split('/')[1];
           $scope.LABEL_FOR_CLEARING_FOCUS = LABEL_FOR_CLEARING_FOCUS;
           $scope.newStructuresEnabled = constants.ENABLE_NEW_STRUCTURE_EDITORS;
           $scope.getStaticImageUrl = UrlInterpolationService.getStaticImageUrl;
-          $scope.activeMenuName = '';
-          $scope.logoutUrl = GLOBALS.logoutUrl;
-          $scope.ACTION_OPEN = 'open';
-          $scope.ACTION_CLOSE = 'close';
-          $scope.KEYBOARD_EVENT_TO_KEY_CODES = {
-            enter: {
-              shiftKeyIsPressed: false,
-              keyCode: 13
-            },
-            tab: {
-              shiftKeyIsPressed: false,
-              keyCode: 9
-            },
-            shiftTab: {
-              shiftKeyIsPressed: true,
-              keyCode: 9
-            }
-          };
+          $scope.logoutUrl = LOGOUT_URL;
           $scope.userMenuIsShown = ($scope.currentUrl !== NAV_MODE_SIGNUP);
           $scope.standardNavIsShown = (
             NAV_MODES_WITH_CUSTOM_LOCAL_NAV.indexOf($scope.currentUrl) === -1);
 
           $scope.onLoginButtonClicked = function() {
             SiteAnalyticsService.registerStartLoginEvent('loginButton');
-            $timeout(function() {
-              $window.location = GLOBALS.loginUrl;
-            }, 150);
+            UserService.getLoginUrlAsync().then(
+              function(loginUrl) {
+                if (loginUrl) {
+                  $timeout(function() {
+                    $window.location = loginUrl;
+                  }, 150);
+                } else {
+                  throw Error('Login url not found.');
+                }
+              }
+            );
           };
 
           $scope.googleSignInIconUrl = (
@@ -119,7 +112,10 @@ oppia.directive('topNavigationBar', [
           $scope.onLogoutButtonClicked = function() {
             $window.localStorage.removeItem('last_uploaded_audio_lang');
           };
-
+          $scope.ACTION_OPEN = NavigationService.ACTION_OPEN;
+          $scope.ACTION_CLOSE = NavigationService.ACTION_CLOSE;
+          $scope.KEYBOARD_EVENT_TO_KEY_CODES =
+          NavigationService.KEYBOARD_EVENT_TO_KEY_CODES;
           /**
            * Opens the submenu.
            * @param {object} evt
@@ -128,8 +124,7 @@ oppia.directive('topNavigationBar', [
            */
           $scope.openSubmenu = function(evt, menuName) {
             // Focus on the current target before opening its submenu.
-            angular.element(evt.currentTarget).focus();
-            $scope.activeMenuName = menuName;
+            NavigationService.openSubmenu(evt, menuName);
           };
           $scope.blurNavigationLinks = function(evt) {
             // This is required because if about submenu is in open state
@@ -139,9 +134,7 @@ oppia.directive('topNavigationBar', [
             $('nav a').blur();
           };
           $scope.closeSubmenu = function(evt) {
-            $scope.activeMenuName = '';
-            angular.element(evt.currentTarget).closest('li')
-              .find('a').blur();
+            NavigationService.closeSubmenu(evt);
           };
           $scope.closeSubmenuIfNotMobile = function(evt) {
             if (DeviceInfoService.isMobileDevice()) {
@@ -161,23 +154,10 @@ oppia.directive('topNavigationBar', [
            *  onMenuKeypress($event, 'aboutMenu', {enter: 'open'})
            */
           $scope.onMenuKeypress = function(evt, menuName, eventsTobeHandled) {
-            var targetEvents = Object.keys(eventsTobeHandled);
-            for (var i = 0; i < targetEvents.length; i++) {
-              var keyCodeSpec =
-                $scope.KEYBOARD_EVENT_TO_KEY_CODES[targetEvents[i]];
-              if (keyCodeSpec.keyCode === evt.keyCode &&
-                evt.shiftKey === keyCodeSpec.shiftKeyIsPressed) {
-                if (eventsTobeHandled[targetEvents[i]] === $scope.ACTION_OPEN) {
-                  $scope.openSubmenu(evt, menuName);
-                } else if (eventsTobeHandled[targetEvents[i]] ===
-                  $scope.ACTION_CLOSE) {
-                  $scope.closeSubmenu(evt);
-                } else {
-                  throw Error('Invalid action type.');
-                }
-              }
-            }
+            NavigationService.onMenuKeypress(evt, menuName, eventsTobeHandled);
+            $scope.activeMenuName = NavigationService.activeMenuName;
           };
+
           // Close the submenu if focus or click occurs anywhere outside of
           // the menu or outside of its parent (which opens submenu on hover).
           angular.element(document).on('click', function(evt) {

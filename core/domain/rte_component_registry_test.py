@@ -46,7 +46,7 @@ _COMPONENT_CONFIG_SCHEMA = [
 
 
 class RteComponentUnitTests(test_utils.GenericTestBase):
-    """Tests that all the default RTE comopnents are valid."""
+    """Tests that all the default RTE components are valid."""
 
     def _is_camel_cased(self, name):
         """Check whether a name is in CamelCase."""
@@ -57,6 +57,7 @@ class RteComponentUnitTests(test_utils.GenericTestBase):
         return bool(re.compile('^[a-zA-Z0-9_]+$').match(input_string))
 
     def _validate_customization_arg_specs(self, customization_arg_specs):
+        """Validates the given customization arg specs."""
         for ca_spec in customization_arg_specs:
             self.assertEqual(set(ca_spec.keys()), set([
                 'name', 'description', 'schema', 'default_value']))
@@ -78,11 +79,17 @@ class RteComponentUnitTests(test_utils.GenericTestBase):
                     apply_custom_validators=False))
 
             if ca_spec['schema']['type'] == 'custom':
-                obj_class = obj_services.Registry.get_object_class_by_type(
-                    ca_spec['schema']['obj_type'])
-                self.assertEqual(
-                    ca_spec['default_value'],
-                    obj_class.normalize(ca_spec['default_value']))
+                # Default value of SanitizedUrl obj_type may be empty. The empty
+                # string is not considered valid for this object, so we don't
+                # attempt to normalize it.
+                if ca_spec['schema']['obj_type'] == 'SanitizedUrl':
+                    self.assertEqual(ca_spec['default_value'], '')
+                else:
+                    obj_class = obj_services.Registry.get_object_class_by_type(
+                        ca_spec['schema']['obj_type'])
+                    self.assertEqual(
+                        ca_spec['default_value'],
+                        obj_class.normalize(ca_spec['default_value']))
 
     def _listdir_omit_ignored(self, directory):
         """List all files and directories within 'directory', omitting the ones
@@ -145,7 +152,8 @@ class RteComponentUnitTests(test_utils.GenericTestBase):
             self.assertTrue(os.path.isfile(protractor_file))
 
             main_js_file = os.path.join(
-                directives_dir, '%sDirective.js' % component_id)
+                directives_dir, 'OppiaNoninteractive%sDirective.js'
+                % component_id)
             main_html_file = os.path.join(
                 directives_dir, '%s_directive.html' % component_id.lower())
 

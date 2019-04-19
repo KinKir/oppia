@@ -24,7 +24,9 @@ oppia.directive('storyNodeEditor', [
         getOutline: '&outline',
         getExplorationId: '&explorationId',
         isOutlineFinalized: '&outlineFinalized',
-        getDestinationNodeIds: '&destinationNodeIds'
+        getDestinationNodeIds: '&destinationNodeIds',
+        getPrerequisiteSkillIds: '&prerequisiteSkillIds',
+        getAcquiredSkillIds: '&acquiredSkillIds'
       },
       templateUrl: UrlInterpolationService.getDirectiveTemplateUrl(
         '/pages/story_editor/main_editor/story_node_editor_directive.html'),
@@ -41,7 +43,7 @@ oppia.directive('storyNodeEditor', [
           var _recalculateAvailableNodes = function() {
             $scope.newNodeId = null;
             $scope.availableNodes = [];
-            for (i = 0; i < $scope.storyNodeIds.length; i++) {
+            for (var i = 0; i < $scope.storyNodeIds.length; i++) {
               if ($scope.storyNodeIds[i] === $scope.getId()) {
                 continue;
               }
@@ -68,6 +70,7 @@ oppia.directive('storyNodeEditor', [
             $scope.oldOutline = $scope.getOutline();
             $scope.editableOutline = $scope.getOutline();
             $scope.explorationId = $scope.getExplorationId();
+            $scope.currentExplorationId = $scope.explorationId;
             $scope.nodeTitleEditorIsShown = false;
             $scope.OUTLINE_SCHEMA = {
               type: 'html',
@@ -77,6 +80,18 @@ oppia.directive('storyNodeEditor', [
             };
           };
 
+          $scope.getSkillEditorUrl = function(skillId) {
+            return '/skill_editor/' + skillId;
+          };
+          // Regex pattern for exploration id, EXPLORATION_AND_SKILL_ID_PATTERN
+          // is not being used here, as the chapter of the story can be saved
+          // with empty exploration id.
+          $scope.explorationIdPattern = /^[a-zA-Z0-9_-]*$/;
+          $scope.canSaveExpId = true;
+          $scope.checkCanSaveExpId = function() {
+            $scope.canSaveExpId = $scope.explorationIdPattern.test(
+              $scope.explorationId);
+          };
           $scope.updateTitle = function(newTitle) {
             if (newTitle === $scope.currentTitle) {
               return;
@@ -98,6 +113,45 @@ oppia.directive('storyNodeEditor', [
           $scope.updateExplorationId = function(explorationId) {
             StoryUpdateService.setStoryNodeExplorationId(
               $scope.story, $scope.getId(), explorationId);
+            $scope.currentExplorationId = explorationId;
+          };
+
+          $scope.addPrerequisiteSkillId = function(skillId) {
+            if (!skillId) {
+              return;
+            }
+            try {
+              StoryUpdateService.addPrerequisiteSkillIdToNode(
+                $scope.story, $scope.getId(), skillId);
+            } catch (err) {
+              AlertsService.addWarning(
+                'Given skill is already a prerequisite skill');
+            }
+            $scope.prerequisiteSkillId = null;
+          };
+
+          $scope.removePrerequisiteSkillId = function(skillId) {
+            StoryUpdateService.removePrerequisiteSkillIdFromNode(
+              $scope.story, $scope.getId(), skillId);
+          };
+
+          $scope.addAcquiredSkillId = function(skillId) {
+            if (!skillId) {
+              return;
+            }
+            try {
+              StoryUpdateService.addAcquiredSkillIdToNode(
+                $scope.story, $scope.getId(), skillId);
+            } catch (err) {
+              AlertsService.addWarning(
+                'Given skill is already an acquired skill');
+            }
+            $scope.acquiredSkillId = null;
+          };
+
+          $scope.removeAcquiredSkillId = function(skillId) {
+            StoryUpdateService.removeAcquiredSkillIdFromNode(
+              $scope.story, $scope.getId(), skillId);
           };
 
           $scope.unfinalizeOutline = function() {

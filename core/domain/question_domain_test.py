@@ -132,7 +132,7 @@ class QuestionDomainTest(test_utils.GenericTestBase):
         question_dict = {
             'id': 'col1.random',
             'question_state_data': default_question_state_data.to_dict(),
-            'question_state_schema_version': (
+            'question_state_data_schema_version': (
                 feconf.CURRENT_STATES_SCHEMA_VERSION),
             'language_code': 'en',
             'version': 1
@@ -218,7 +218,7 @@ class QuestionDomainTest(test_utils.GenericTestBase):
         self._assert_validation_error(
             'Expected question state data to be a State object')
 
-        self.question.question_state_schema_version = 'abc'
+        self.question.question_state_data_schema_version = 'abc'
         self._assert_validation_error(
             'Expected schema version to be an integer')
 
@@ -307,22 +307,11 @@ class QuestionSkillLinkDomainTest(test_utils.GenericTestBase):
         expected_object_dict = {
             'question_id': 'testquestion',
             'skill_id': 'testskill',
+            'skill_description': 'testskilldescription',
+            'skill_difficulty': 0.5,
         }
         observed_object = question_domain.QuestionSkillLink(
-            'testquestion', 'testskill')
-        self.assertEqual(expected_object_dict, observed_object.to_dict())
-
-    def test_update_skill_id(self):
-        """Test to verify update_skill_id method of the
-        Question Skill Link Domain object.
-        """
-        expected_object_dict = {
-            'question_id': 'testquestion',
-            'skill_id': 'testskill2',
-        }
-        observed_object = question_domain.QuestionSkillLink(
-            'testquestion', 'testskill')
-        observed_object.update_skill_id('testskill2')
+            'testquestion', 'testskill', 'testskilldescription', 0.5)
         self.assertEqual(expected_object_dict, observed_object.to_dict())
 
 

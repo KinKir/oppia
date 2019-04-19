@@ -39,7 +39,11 @@ class ConceptCardDataHandlerTest(test_utils.GenericTestBase):
             state_domain.SubtitledHtml(
                 '1', 'Skill Explanation'), [
                     state_domain.SubtitledHtml('2', 'Example 1'),
-                    state_domain.SubtitledHtml('3', 'Example 2')], {})
+                    state_domain.SubtitledHtml('3', 'Example 2')],
+            {'1': {}, '2': {}, '3': {}},
+            state_domain.WrittenTranslations.from_dict({
+                'translations_mapping': {'1': {}, '2': {}, '3': {}}
+            }))
         self.admin = user_services.UserActionsInfo(self.admin_id)
         self.skill_id = skill_services.get_new_skill_id()
         self.save_new_skill(
@@ -65,7 +69,6 @@ class ConceptCardDataHandlerTest(test_utils.GenericTestBase):
 
     def test_get_concept_card_fails_when_new_structures_not_enabled(self):
         with self.swap(constants, 'ENABLE_NEW_STRUCTURE_PLAYERS', False):
-            response = self.testapp.get(
+            self.get_json(
                 '%s/%s' % (feconf.CONCEPT_CARD_DATA_URL_PREFIX, self.skill_id),
-                expect_errors=True)
-            self.assertEqual(response.status_int, 404)
+                expected_status_int=404)

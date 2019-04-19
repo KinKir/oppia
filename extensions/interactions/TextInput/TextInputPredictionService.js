@@ -21,26 +21,34 @@
  * function on Oppia-ml.
  */
 
+// Minimum confidence required for a predicted answer group to be shown to user.
+// Generally a threshold of 0.7-0.8 is assumed to be a good one in practice,
+// however value need not be in those bounds.
+oppia.constant('TEXT_INPUT_PREDICTION_SERVICE_THRESHOLD', 0.7);
+
 oppia.factory('TextInputPredictionService', [
-  'SVMPredictionService', 'TextInputTokenizer',
-  'CountVectorizerService', function(
-      SVMPredictionService, TextInputTokenizer,
-      CountVectorizerService) {
+  'CountVectorizerService', 'SVMPredictionService',
+  'TextInputTokenizer', 'TEXT_INPUT_PREDICTION_SERVICE_THRESHOLD', function(
+      CountVectorizerService, SVMPredictionService,
+      TextInputTokenizer, TEXT_INPUT_PREDICTION_SERVICE_THRESHOLD) {
     return {
       predict: function(classifierData, textInput) {
         var cvVocabulary = classifierData.cv_vocabulary;
-        var prediction = -1;
         var svmData = classifierData.SVM;
 
         // Tokenize the text input.
+        textInput = textInput.toLowerCase();
         var textInputTokens = TextInputTokenizer.generateTokens(textInput);
 
-        if (textInputTokens !== null) {
-          var textVector = CountVectorizerService.vectorize(
-            textInputTokens, cvVocabulary);
-          prediction = SVMPredictionService.predict(svmData, textVector);
+        var textVector = CountVectorizerService.vectorize(
+          textInputTokens, cvVocabulary);
+        var predictionResult = SVMPredictionService.predict(
+          svmData, textVector);
+        if (predictionResult.predictionConfidence >
+            TEXT_INPUT_PREDICTION_SERVICE_THRESHOLD) {
+          return predictionResult.predictionLabel;
         }
-        return prediction;
+        return -1;
       }
     };
   }]);
